@@ -3,7 +3,9 @@ const db = require('../db_adapter.cjs');
 
 // CLI args for date: node fetch_twse.cjs 2025-12-30
 const args = process.argv.slice(2);
-const inputDate = args[0] ? new Date(args[0]) : new Date(2025, 11, 31); // Default to Dec 31, 2025
+const now = new Date();
+now.setDate(now.getDate() - 1); // Default to Yesterday
+const inputDate = args[0] ? new Date(args[0]) : now;
 
 // Format dates
 const year = inputDate.getFullYear();
