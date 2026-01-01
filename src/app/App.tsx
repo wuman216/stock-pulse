@@ -164,7 +164,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant={"outline"}
