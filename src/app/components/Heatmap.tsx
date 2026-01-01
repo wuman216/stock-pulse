@@ -16,17 +16,39 @@ interface HeatmapProps {
     title: string;
 }
 
+// Helper to get color based on change percentage (Standard Market Heatmap)
+const getTrendColor = (change: number) => {
+    // Taiwan Market: Red = Up, Green = Down
+    // Range: -10% (Deep Green) <-> 0% (Gray) <-> 10% (Deep Red)
+
+    // Limits
+    if (change >= 9.5) return '#7f1d1d'; // Red 900
+    if (change <= -9.5) return '#14532d'; // Green 900
+
+    if (change > 0) {
+        // Red Scale
+        if (change > 7) return '#991b1b'; // Red 800
+        if (change > 5) return '#b91c1c'; // Red 700
+        if (change > 3) return '#dc2626'; // Red 600
+        if (change > 1) return '#ef4444'; // Red 500
+        return '#f87171'; // Red 400
+    } else if (change < 0) {
+        // Green Scale
+        if (change < -7) return '#166534'; // Green 800
+        if (change < -5) return '#15803d'; // Green 700
+        if (change < -3) return '#16a34a'; // Green 600
+        if (change < -1) return '#22c55e'; // Green 500
+        return '#4ade80'; // Green 400
+    }
+
+    return '#6b7280'; // Gray 500 (Unchanged)
+};
+
 const CustomContent = (props: any) => {
     const { x, y, width, height, name, changePercent, price, volume, turnoverRate, code } = props;
 
-    // Color logic (same as before)
-    let bgColor = '#3b82f6';
-    if (typeof turnoverRate === 'number') {
-        if (turnoverRate > 5) bgColor = '#ef4444';
-        else if (turnoverRate > 1) bgColor = '#8b5cf6';
-    } else {
-        bgColor = '#60a5fa';
-    }
+    // Use Trend Color based on Change %
+    const bgColor = getTrendColor(Number(changePercent) || 0);
 
     return (
         <g>
@@ -72,7 +94,7 @@ const CustomTooltip = ({ active, payload }: any) => {
                     漲跌幅: {data.changePercent > 0 ? '+' : ''}{data.changePercent}%
                 </div>
                 <div>成交值: {(Number(data.volume) || 0).toFixed(1)}億</div>
-                <div>週轉率: {data.turnoverRate ?? 'N/A'}</div>
+                <div>週轉率: {data.turnoverRate ?? 'N/A'}%</div>
             </div>
         );
     }
@@ -124,17 +146,23 @@ export const Heatmap = ({ data, title }: HeatmapProps) => {
                 </ResponsiveContainer>
             </div>
 
-            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                <span>週轉率:</span>
-                <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 bg-blue-400 rounded"></div>
-                    <span>冷靜 (N/A)</span>
+            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center gap-2">
+                    <span>漲跌幅顏色:</span>
+                    <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 bg-green-800 rounded"></div>
+                        <span>跌 (-10%)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 bg-gray-400 rounded"></div>
+                        <span>平 (0%)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 bg-red-800 rounded"></div>
+                        <span>漲 (+10%)</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 bg-red-500 rounded"></div>
-                    <span>熱情</span>
-                </div>
-                <span className="ml-auto opacity-75">* 面積=成交值 | 漲跌=紅漲綠跌</span>
+                <div>* 面積=成交值</div>
             </div>
         </div>
     );
