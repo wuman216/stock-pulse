@@ -115,7 +115,6 @@ export const Heatmap = ({ data, title }: HeatmapProps) => {
                     <Treemap
                         data={chartData}
                         dataKey="value"
-                        aspectRatio={4 / 3}
                         stroke="#fff"
                         isAnimationActive={false}
                         content={<CustomContent />}
