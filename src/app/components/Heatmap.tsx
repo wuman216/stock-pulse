@@ -19,28 +19,14 @@ interface HeatmapProps {
 const CustomContent = (props: any) => {
     const { x, y, width, height, name, changePercent, price, volume, turnoverRate, code } = props;
 
-    // Too small to render text?
-    if (width < 50 || height < 50) return null;
-
-    // Color logic based on Turnover Rate
-    // User: "高點最熱情(紅), 低點最冷(藍)"
-    // If N/A or 0, use Blue (Cool).
-    // This is a placeholder logic until we have real turnover rates.
-    // For now, if "N/A", we use a default slate/blue color.
-    let bgColor = '#3b82f6'; // Default Blue (Cool)
-
+    // Color logic (same as before)
+    let bgColor = '#3b82f6';
     if (typeof turnoverRate === 'number') {
-        // Simple linear scale for demo: 0% -> Blue, 10% -> Red
-        // This will be refined later
         if (turnoverRate > 5) bgColor = '#ef4444';
-        else if (turnoverRate > 1) bgColor = '#8b5cf6'; // Purple
+        else if (turnoverRate > 1) bgColor = '#8b5cf6';
     } else {
-        // N/A case: Using "Cool" Blue as requested for low/unknown
         bgColor = '#60a5fa';
     }
-
-    // Text color
-    const textColor = '#ffffff';
 
     return (
         <g>
@@ -55,21 +41,17 @@ const CustomContent = (props: any) => {
                     strokeWidth: 2,
                 }}
             />
-            {width > 60 && height > 40 && (
+            {/* Only show text if box is large enough */}
+            {width > 40 && height > 30 && (
                 <foreignObject x={x} y={y} width={width} height={height}>
                     <div className="h-full w-full flex flex-col items-center justify-center text-white p-1 text-center leading-tight overflow-hidden">
                         <div className="font-bold text-xs sm:text-sm">{code} {name}</div>
-                        {height > 60 && (
+                        {height > 50 && (
                             <>
                                 <div className="text-xs font-mono">${price}</div>
-                                <div className={`text-xs ${changePercent >= 0 ? 'text-red-100' : 'text-green-100'}`}>
-                                    {changePercent > 0 ? '+' : ''}{changePercent}%
+                                <div className={`text-xs ${Number(changePercent) >= 0 ? 'text-red-100' : 'text-green-100'}`}>
+                                    {Number(changePercent) > 0 ? '+' : ''}{changePercent}%
                                 </div>
-                                {height > 80 && (
-                                    <div className="text-[10px] opacity-90 mt-1">
-                                        {(Number(volume) || 0).toFixed(1)}億 | {turnoverRate ?? 'N/A'}
-                                    </div>
-                                )}
                             </>
                         )}
                     </div>
@@ -79,20 +61,40 @@ const CustomContent = (props: any) => {
     );
 };
 
+const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="bg-white p-3 border border-gray-200 shadow-lg rounded text-sm text-gray-800 z-50">
+                <div className="font-bold mb-1">{data.code} {data.name}</div>
+                <div>價格: ${data.price}</div>
+                <div className={data.changePercent >= 0 ? 'text-red-600' : 'text-green-600'}>
+                    漲跌幅: {data.changePercent > 0 ? '+' : ''}{data.changePercent}%
+                </div>
+                <div>成交值: {(Number(data.volume) || 0).toFixed(1)}億</div>
+                <div>週轉率: {data.turnoverRate ?? 'N/A'}</div>
+            </div>
+        );
+    }
+    return null;
+};
+
 export const Heatmap = ({ data, title }: HeatmapProps) => {
-    // Only take top 20 for heatmap to avoid clutter
+    // Only take top 10 for heatmap as requested to fill space better and avoid clutter
+    const top10Data = useMemo(() => data.slice(0, 10), [data]);
+
     const chartData = useMemo(() => {
         return [
             {
                 name: 'Market',
-                children: data.slice(0, 15).map(s => ({
+                children: top10Data.map(s => ({
                     ...s,
-                    size: s.volume, // Recharts uses 'size' prop for area calculation by default? Actually it uses valueKey.
-                    value: s.volume
+                    size: s.volume,
+                    value: s.volume // Treemap uses 'value' to calculate area size
                 }))
             }
         ];
-    }, [data]);
+    }, [top10Data]);
 
     const totalVolume = useMemo(() => {
         const sum = data.reduce((acc, curr) => acc + curr.volume, 0);
@@ -104,7 +106,7 @@ export const Heatmap = ({ data, title }: HeatmapProps) => {
     return (
         <div className="p-4 bg-white mb-4 rounded-lg shadow-sm border border-gray-100">
             <div className="flex justify-between items-end mb-2">
-                <h2 className="text-lg font-bold text-gray-800">{title}</h2>
+                <h2 className="text-lg font-bold text-gray-800">{title} (Top 10)</h2>
                 <span className="text-sm text-gray-500">總成交值: <span className="font-mono text-gray-900 font-bold ml-1">{totalVolume} 億</span></span>
             </div>
 
@@ -118,7 +120,7 @@ export const Heatmap = ({ data, title }: HeatmapProps) => {
                         isAnimationActive={false}
                         content={<CustomContent />}
                     >
-                        {/* Tooltip is tricky with custom content in Recharts sometimes, removing for now to rely on visual text */}
+                        <Tooltip content={<CustomTooltip />} />
                     </Treemap>
                 </ResponsiveContainer>
             </div>
