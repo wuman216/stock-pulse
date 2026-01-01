@@ -145,7 +145,19 @@ setInterval(() => {
 }, 60000);
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../dist')));
+const distPath = path.resolve(__dirname, '../dist');
+console.log('Serving static files from:', distPath);
+
+// Check if dist exists (debugging for Render)
+const fs = require('fs');
+if (fs.existsSync(distPath)) {
+    console.log('Dist directory exists.');
+    console.log('Contents:', fs.readdirSync(distPath));
+} else {
+    console.error('Dist directory NOT found at:', distPath);
+}
+
+app.use(express.static(distPath));
 
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
