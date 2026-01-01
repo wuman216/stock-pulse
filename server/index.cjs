@@ -1,3 +1,11 @@
+console.log('--- Startup Diagnostics ---');
+console.log('CWD:', process.cwd());
+console.log('DATABASE_URL exists in env:', !!process.env.DATABASE_URL);
+if (process.env.DATABASE_URL) {
+    console.log('DATABASE_URL prefix:', process.env.DATABASE_URL.substring(0, 15) + '...');
+}
+console.log('---------------------------');
+
 const express = require('express');
 const cors = require('cors');
 const db = require('./db_adapter.cjs');

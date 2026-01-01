@@ -7,7 +7,12 @@ require('dotenv').config();
 class DBAdapter {
     constructor() {
         this.type = process.env.DATABASE_URL ? 'postgres' : 'sqlite';
-        console.log(`Initializing DB Adapter: ${this.type}`);
+        console.log(`[DBAdapter] Detected Database Type: ${this.type}`);
+        if (this.type === 'sqlite') {
+            console.log('[DBAdapter] Fallback to SQLite because DATABASE_URL is missing.');
+        } else {
+            console.log('[DBAdapter] Using PostgreSQL (DATABASE_URL is set).');
+        }
 
         if (this.type === 'sqlite') {
             const dbPath = path.resolve(__dirname, 'transactions.db');
