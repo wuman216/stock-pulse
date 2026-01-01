@@ -58,8 +58,8 @@ class DBAdapter {
                 UNIQUE(date, stock_code)
             )`);
             // Attempt to add columns for existing tables (ignore errors if exist)
-            this.db.run(`ALTER TABLE transactions ADD COLUMN turnover_rate REAL`, () => { });
-            this.db.run(`ALTER TABLE transactions ADD COLUMN shares_outstanding INTEGER`, () => { }); `);
+            this.db.run(`ALTER TABLE transactions ADD COLUMN turnover_rate REAL`, (err) => { });
+            this.db.run(`ALTER TABLE transactions ADD COLUMN shares_outstanding INTEGER`, (err) => { });
         });
     }
 
@@ -83,7 +83,7 @@ class DBAdapter {
                 shares_outstanding BIGINT,
                 UNIQUE(date, stock_code)
             );
-            `;
+        `;
         try {
             await this.client.query(sql);
             // Attempt migration for existing tables
@@ -118,7 +118,7 @@ class DBAdapter {
             } else {
                 // PostgreSQL parameter syntax is $1, $2, not ?
                 let paramIndex = 1;
-                const parseSql = sql.replace(/\?/g, () => `$${ paramIndex++ } `);
+                const parseSql = sql.replace(/\?/g, () => `$${paramIndex++} `);
                 this.client.query(parseSql, params).then(res => {
                     resolve(res.rows || { changes: res.rowCount });
                 }).catch(reject);

@@ -16,39 +16,28 @@ interface HeatmapProps {
     title: string;
 }
 
-// Helper to get color based on change percentage (Standard Market Heatmap)
-const getTrendColor = (change: number) => {
-    // Taiwan Market: Red = Up, Green = Down
-    // Range: -10% (Deep Green) <-> 0% (Gray) <-> 10% (Deep Red)
+// Helper to get color based on Turnover Rate
+const getTurnoverColor = (rate: number) => {
+    // Gradient: Deep Blue -> Light Blue -> Light Red -> Deep Red
+    // Represents: Very Cold -> Normal -> Active -> Very Hot
 
-    // Limits
-    if (change >= 9.5) return '#7f1d1d'; // Red 900
-    if (change <= -9.5) return '#14532d'; // Green 900
+    if (rate <= 1) return '#1e40af'; // Blue 800 (Very Cold)
+    if (rate <= 2) return '#3b82f6'; // Blue 500
+    if (rate <= 3) return '#93c5fd'; // Blue 300 (Cool)
 
-    if (change > 0) {
-        // Red Scale
-        if (change > 7) return '#991b1b'; // Red 800
-        if (change > 5) return '#b91c1c'; // Red 700
-        if (change > 3) return '#dc2626'; // Red 600
-        if (change > 1) return '#ef4444'; // Red 500
-        return '#f87171'; // Red 400
-    } else if (change < 0) {
-        // Green Scale
-        if (change < -7) return '#166534'; // Green 800
-        if (change < -5) return '#15803d'; // Green 700
-        if (change < -3) return '#16a34a'; // Green 600
-        if (change < -1) return '#22c55e'; // Green 500
-        return '#4ade80'; // Green 400
-    }
+    // Transition to Red
+    if (rate <= 5) return '#fca5a5'; // Red 300 (Warming up)
+    if (rate <= 7) return '#ef4444'; // Red 500 (Hot)
+    if (rate <= 10) return '#b91c1c'; // Red 700 (Very Hot)
 
-    return '#6b7280'; // Gray 500 (Unchanged)
+    return '#7f1d1d'; // Red 900 (Extreme)
 };
 
 const CustomContent = (props: any) => {
     const { x, y, width, height, name, changePercent, price, volume, turnoverRate, code } = props;
 
-    // Use Trend Color based on Change %
-    const bgColor = getTrendColor(Number(changePercent) || 0);
+    // Use Turnover Color based on Turnover Rate
+    const bgColor = getTurnoverColor(Number(turnoverRate) || 0);
 
     return (
         <g>
@@ -67,13 +56,18 @@ const CustomContent = (props: any) => {
             {width > 40 && height > 30 && (
                 <foreignObject x={x} y={y} width={width} height={height}>
                     <div className="h-full w-full flex flex-col items-center justify-center text-white p-1 text-center leading-tight overflow-hidden">
-                        <div className="font-bold text-xs sm:text-sm">{code} {name}</div>
+                        <div className="font-bold text-xs sm:text-sm drop-shadow-md">{code} {name}</div>
                         {height > 50 && (
                             <>
-                                <div className="text-xs font-mono">${price}</div>
-                                <div className={`text-xs ${Number(changePercent) >= 0 ? 'text-red-100' : 'text-green-100'}`}>
+                                <div className="text-xs font-mono drop-shadow-md">${price}</div>
+                                <div className="text-xs font-mono drop-shadow-md">
                                     {Number(changePercent) > 0 ? '+' : ''}{changePercent}%
                                 </div>
+                                {height > 80 && (
+                                    <div className="text-[10px] opacity-90 mt-1 drop-shadow-md">
+                                        {(Number(volume) || 0).toFixed(1)}億 | {turnoverRate ?? 'N/A'}%
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
@@ -148,18 +142,22 @@ export const Heatmap = ({ data, title }: HeatmapProps) => {
 
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                 <div className="flex items-center gap-2">
-                    <span>漲跌幅顏色:</span>
+                    <span>週轉率顏色:</span>
                     <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-green-800 rounded"></div>
-                        <span>跌 (-10%)</span>
+                        <div className="w-4 h-4 bg-blue-800 rounded"></div>
+                        <span>冷 (&lt;1%)</span>
                     </div>
                     <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-gray-400 rounded"></div>
-                        <span>平 (0%)</span>
+                        <div className="w-4 h-4 bg-blue-300 rounded"></div>
+                        <span>普 (3%)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 bg-red-300 rounded"></div>
+                        <span>溫 (5%)</span>
                     </div>
                     <div className="flex items-center gap-1">
                         <div className="w-4 h-4 bg-red-800 rounded"></div>
-                        <span>漲 (+10%)</span>
+                        <span>熱 (&gt;7%)</span>
                     </div>
                 </div>
                 <div>* 面積=成交值</div>
