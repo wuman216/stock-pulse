@@ -40,10 +40,11 @@ const getStockHistory = async (codes, latestDate) => {
         FROM transactions 
         WHERE stock_code IN (${placeholders}) 
         AND date >= ?
+        AND date <= ?
         ORDER BY date ASC
     `;
 
-    const params = [...codes, cutoffDate];
+    const params = [...codes, cutoffDate, latestDate];
     return await db.query(sql, params);
 };
 
