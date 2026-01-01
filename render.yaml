@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: trasaction-amount
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.cjs
+    branch: main
+    envVars:
+      - key: DATABASE_URL
+        sync: false
