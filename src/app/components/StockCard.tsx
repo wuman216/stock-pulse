@@ -1,4 +1,4 @@
-import { LineChart, Line, Tooltip, ComposedChart, Bar, XAxis, YAxis } from 'recharts';
+import { LineChart, Line, Tooltip, ComposedChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface KLineData {
@@ -43,6 +43,28 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
     priceRange: [k.low, k.high],
     isRising: k.close >= k.open
   }));
+
+  // Calculate custom ticks: Max, Min, Average
+  const getTicks = (data: any[], type: 'kline' | 'trend') => {
+    if (!data || data.length === 0) return [];
+    const isKline = type === 'kline';
+    const values = data.map(d => isKline ? d.close : d.price);
+    const allHighs = isKline ? data.map(d => d.high) : values;
+    const allLows = isKline ? data.map(d => d.low) : values;
+
+    // Safety check for empty arrays or NaNs
+    if (allHighs.length === 0) return [];
+
+    const max = Math.max(...allHighs);
+    const min = Math.min(...allLows);
+    const rawMid = (max + min) / 2;
+    const mid = rawMid < 100 ? parseFloat(rawMid.toFixed(1)) : Math.round(rawMid);
+
+    return Array.from(new Set([min, mid, max])).sort((a, b) => a - b);
+  };
+
+  const klineTicks = getTicks(kline, 'kline');
+  const trendTicks = getTicks(trend, 'trend');
 
   const CustomBar = (props: any) => {
     const { x, y, width, height, payload } = props;
@@ -112,11 +134,18 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
             width={320}
             height={100}
             data={klineChartData}
-            margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+            margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
           >
+            <CartesianGrid vertical={false} stroke="#e5e7eb" />
             <YAxis
-              domain={['dataMin', 'dataMax']}
-              hide
+              domain={[klineTicks[0], klineTicks[klineTicks.length - 1]]}
+              ticks={klineTicks}
+              orientation="right"
+              interval={0}
+              tick={{ fontSize: 10, fill: '#6b7280' }}
+              width={40}
+              axisLine={false}
+              tickLine={false}
             />
             <XAxis dataKey="day" hide />
             <Bar
@@ -141,11 +170,18 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
         {/* 30日走勢 */}
         <div>
           <div className="text-xs text-gray-500 mb-2">近30日走勢</div>
-          <LineChart width={320} height={80} data={trend} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+          <LineChart width={320} height={80} data={trend} margin={{ top: 10, right: 0, bottom: 10, left: 0 }}>
+            <CartesianGrid vertical={false} stroke="#e5e7eb" />
             <YAxis
               type="number"
-              domain={[(min: number) => min, (max: number) => max]}
-              hide
+              domain={[trendTicks[0], trendTicks[trendTicks.length - 1]]}
+              ticks={trendTicks}
+              orientation="right"
+              interval={0}
+              tick={{ fontSize: 10, fill: '#6b7280' }}
+              width={40}
+              axisLine={false}
+              tickLine={false}
             />
             <Line
               type="monotone"
