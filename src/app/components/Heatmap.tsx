@@ -67,7 +67,7 @@ const CustomContent = (props: any) => {
                                 </div>
                                 {height > 80 && (
                                     <div className="text-[10px] opacity-90 mt-1">
-                                        {volume.toFixed(1)}億 | {turnoverRate ?? 'N/A'}
+                                        {(Number(volume) || 0).toFixed(1)}億 | {turnoverRate ?? 'N/A'}
                                     </div>
                                 )}
                             </>
