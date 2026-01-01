@@ -16,13 +16,24 @@ class DBAdapter {
                 else console.log('Connected to SQLite.');
             });
             this.initSQLite();
+            this.initPromise = Promise.resolve();
         } else {
             this.client = new Client({
                 connectionString: process.env.DATABASE_URL,
                 ssl: { rejectUnauthorized: false }
             });
-            this.client.connect().then(() => console.log('Connected to PostgreSQL.')).catch(e => console.error('PG Connect Error:', e));
-            this.initPG();
+            this.initPromise = this.connectAndInitPG();
+        }
+    }
+
+    async connectAndInitPG() {
+        try {
+            await this.client.connect();
+            console.log('Connected to PostgreSQL.');
+            await this.initPG();
+        } catch (e) {
+            console.error("PG Connection/Init Error:", e);
+            throw e;
         }
     }
 
@@ -68,13 +79,17 @@ class DBAdapter {
         `;
         try {
             await this.client.query(sql);
+            console.log("PG Table 'transactions' ensured.");
         } catch (e) {
             console.error("PG Init Error:", e);
+            throw e;
         }
     }
 
     // Generic Query method (returns rows)
-    query(sql, params = []) {
+    async query(sql, params = []) {
+        await this.initPromise;
+
         return new Promise((resolve, reject) => {
             if (this.type === 'sqlite') {
                 // Determine if SELECT or other
@@ -103,6 +118,8 @@ class DBAdapter {
 
     // Support for bulk insert transaction
     async bulkInsert(data) {
+        await this.initPromise;
+
         // data: array of { date, code, name, market, open, high, low, close, vol, val, change, change_percent }
         if (this.type === 'sqlite') {
             return new Promise((resolve, reject) => {

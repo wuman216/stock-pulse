@@ -183,6 +183,7 @@ const fetchStockData = async () => {
         console.log("DB Update Complete.");
     } catch (err) {
         console.error("DB Insert Error:", err);
+        process.exit(1);
     } finally {
         db.close();
     }
