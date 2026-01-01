@@ -24,14 +24,15 @@ interface StockData {
 }
 
 // 模擬K線和走勢資料 (因為後端目前只有單日或少量交易資料，趨勢圖仍需模擬)
-const generateMockVisuals = (basePrice: number) => {
+const generateMockVisuals = (basePrice: number, dateStr?: string) => {
   const klineData = [];
   let currentPrice = basePrice;
-  const today = new Date(); // Or use the data date
+  // Use provided date or fallback to today
+  const anchorDate = dateStr ? parseISO(dateStr) : new Date();
 
   for (let i = 9; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
+    const date = new Date(anchorDate);
+    date.setDate(anchorDate.getDate() - i);
 
     // Simple random walk
     const openPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.05); // 5% vol
@@ -53,8 +54,8 @@ const generateMockVisuals = (basePrice: number) => {
   const trend = [];
   currentPrice = basePrice;
   for (let i = 29; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
+    const date = new Date(anchorDate);
+    date.setDate(anchorDate.getDate() - i);
     currentPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.03);
     trend.push({
       date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
@@ -119,7 +120,7 @@ export default function App() {
           let trend = item.trend;
 
           if (!kline || kline.length === 0) {
-            const visuals = generateMockVisuals(item.close_price);
+            const visuals = generateMockVisuals(item.close_price, item.date);
             kline = visuals.kline;
             trend = visuals.trend;
           }
