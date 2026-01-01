@@ -22,11 +22,12 @@ interface StockCardProps {
   change: number;
   changePercent: number;
   volume: number;
+  turnoverRate?: number | string;
   kline: KLineData[];
   trend: TrendData[];
 }
 
-export function StockCard({ rank, code, name, price, change, changePercent, volume, kline, trend }: StockCardProps) {
+export function StockCard({ rank, code, name, price, change, changePercent, volume, turnoverRate, kline, trend }: StockCardProps) {
   // Determine color based on change
   const isRising = change > 0;
   const isFalling = change < 0;
@@ -120,8 +121,17 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-500">成交值</div>
-          <div className="text-gray-900">{volume.toFixed(2)}億</div>
+          <div className="mb-1">
+            <div className="text-xs text-gray-500">成交值</div>
+            <div className="text-gray-900 font-medium">{volume.toFixed(2)}億</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">週轉率</div>
+            {/* Display logic: if number/string, show it. Add color if high? */}
+            <div className={`text-xs font-mono font-medium ${Number(turnoverRate) > 5 ? 'text-red-500' : 'text-gray-700'}`}>
+              {turnoverRate ?? 'N/A'}%
+            </div>
+          </div>
         </div>
       </div>
 

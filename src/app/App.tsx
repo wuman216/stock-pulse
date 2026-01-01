@@ -75,8 +75,12 @@ export default function App() {
           axios.get('/api/top10?market=TPEx')
         ]);
 
+        // Validate response structure
+        const listedData = resListed.data && resListed.data.data ? resListed.data.data : [];
+        const otcData = resOtc.data && resOtc.data.data ? resOtc.data.data : [];
+
         // Attempt to find the date from the first item
-        const dateSource = resListed.data.data[0] || resOtc.data.data[0];
+        const dateSource = listedData[0] || otcData[0];
         if (dateSource && dateSource.date) {
           setDataDate(dateSource.date.replace(/-/g, '/'));
         }
@@ -99,14 +103,14 @@ export default function App() {
             change: item.change || 0,
             changePercent: item.change_percent || 0,
             volume: item.trade_value / 100000000,
-            turnoverRate: 'N/A', // Placeholder as requested
+            turnoverRate: item.turnover_rate || 'N/A',
             kline: kline,
             trend: trend
           };
         });
 
-        setListedStocks(transform(resListed.data.data || []));
-        setOtcStocks(transform(resOtc.data.data || []));
+        setListedStocks(transform(listedData));
+        setOtcStocks(transform(otcData));
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -166,6 +170,7 @@ export default function App() {
                         change={stock.change}
                         changePercent={stock.changePercent}
                         volume={stock.volume}
+                        turnoverRate={stock.turnoverRate}
                         kline={stock.kline}
                         trend={stock.trend}
                       />
@@ -195,6 +200,7 @@ export default function App() {
                         change={stock.change}
                         changePercent={stock.changePercent}
                         volume={stock.volume}
+                        turnoverRate={stock.turnoverRate}
                         kline={stock.kline}
                         trend={stock.trend}
                       />
