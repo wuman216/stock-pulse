@@ -177,7 +177,7 @@ export default function App() {
                   <ChevronDown className="ml-auto h-3.5 w-3.5 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[100]" align="end">
+              <PopoverContent className="w-auto p-0 z-[100]" align="end" side="bottom">
                 <Calendar
                   mode="single"
                   selected={selectedDate ? parseISO(selectedDate) : undefined}
