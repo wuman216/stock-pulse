@@ -23,11 +23,13 @@ interface StockCardProps {
   changePercent: number;
   volume: number;
   turnoverRate?: number | string;
+  change5d?: number;
+  bias20?: number;
   kline: KLineData[];
   trend: TrendData[];
 }
 
-export function StockCard({ rank, code, name, price, change, changePercent, volume, turnoverRate, kline, trend }: StockCardProps) {
+export function StockCard({ rank, code, name, price, change, changePercent, volume, turnoverRate, change5d, bias20, kline, trend }: StockCardProps) {
   // Determine color based on change
   const isRising = change > 0;
   const isFalling = change < 0;
@@ -125,13 +127,31 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
             <div className="text-xs text-gray-500">成交值</div>
             <div className="text-gray-900 font-medium">{volume.toFixed(2)}億</div>
           </div>
-          <div>
+          <div className="mb-1">
             <div className="text-xs text-gray-500">週轉率</div>
-            {/* Display logic: if number/string, show it. Add color if high? */}
             <div className={`text-xs font-mono font-medium ${Number(turnoverRate) > 5 ? 'text-red-500' : 'text-gray-700'}`}>
               {turnoverRate ?? 'N/A'}%
             </div>
           </div>
+          {/* New Metrics */}
+          {(typeof change5d === 'number' || typeof bias20 === 'number') && (
+            <div className="flex flex-col gap-1 mt-2 border-t pt-1">
+              {typeof change5d === 'number' && (
+                <div className={`text-xs flex justify-end gap-1 ${change5d > 30 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                  <span>5日:</span>
+                  <span>{change5d > 0 ? '+' : ''}{change5d.toFixed(1)}%</span>
+                  {change5d > 30 && <span className="text-[10px] bg-red-100 px-1 rounded">高風險</span>}
+                </div>
+              )}
+              {typeof bias20 === 'number' && (
+                <div className={`text-xs flex justify-end gap-1 ${bias20 > 20 ? 'text-orange-600 font-bold' : 'text-gray-500'}`}>
+                  <span>乖離:</span>
+                  <span>{bias20 > 0 ? '+' : ''}{bias20.toFixed(1)}%</span>
+                  {bias20 > 20 && <span className="text-[10px] bg-orange-100 px-1 rounded">警戒</span>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

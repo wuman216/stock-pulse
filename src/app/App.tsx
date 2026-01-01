@@ -19,6 +19,8 @@ interface StockData {
   changePercent: number;
   volume: number;
   turnoverRate?: string | number;
+  change5d?: number;
+  bias20?: number;
   kline: any[];
   trend: any[];
 }
@@ -133,6 +135,8 @@ export default function App() {
             changePercent: item.change_percent || 0,
             volume: item.trade_value / 100000000,
             turnoverRate: item.turnover_rate || 'N/A',
+            change5d: item.change_5d,
+            bias20: item.bias_20,
             kline: kline,
             trend: trend
           };
@@ -233,6 +237,8 @@ export default function App() {
                         changePercent={stock.changePercent}
                         volume={stock.volume}
                         turnoverRate={stock.turnoverRate}
+                        change5d={stock.change5d}
+                        bias20={stock.bias20}
                         kline={stock.kline}
                         trend={stock.trend}
                       />
@@ -263,6 +269,8 @@ export default function App() {
                         changePercent={stock.changePercent}
                         volume={stock.volume}
                         turnoverRate={stock.turnoverRate}
+                        change5d={stock.change5d}
+                        bias20={stock.bias20}
                         kline={stock.kline}
                         trend={stock.trend}
                       />

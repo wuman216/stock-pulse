@@ -112,8 +112,32 @@ app.get('/api/top10', async (req, res) => {
                 price: h.close_price
             }));
 
+            // Calculate 5-Day Change
+            let change5d = null;
+            if (stockHistory.length >= 6) {
+                const current = stockHistory[stockHistory.length - 1].close_price;
+                const prev5 = stockHistory[stockHistory.length - 1 - 5].close_price;
+                if (prev5 !== 0) {
+                    change5d = ((current - prev5) / prev5) * 100;
+                }
+            }
+
+            // Calculate 20-Day MA Bias
+            let bias20 = null;
+            if (stockHistory.length >= 20) {
+                const last20 = stockHistory.slice(-20);
+                const sum20 = last20.reduce((acc, curr) => acc + curr.close_price, 0);
+                const ma20 = sum20 / 20;
+                const current = stockHistory[stockHistory.length - 1].close_price;
+                if (ma20 !== 0) {
+                    bias20 = ((current - ma20) / ma20) * 100;
+                }
+            }
+
             return {
                 ...stock,
+                change_5d: change5d,
+                bias_20: bias20,
                 kline,
                 trend
             };
