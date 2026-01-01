@@ -1,5 +1,5 @@
 const axios = require('axios');
-const db = require('../db.cjs');
+const db = require('../db_adapter.cjs');
 
 // CLI args for date: node fetch_twse.cjs 2025-12-30
 const args = process.argv.slice(2);
@@ -178,30 +178,14 @@ const fetchStockData = async () => {
     const finalData = allTransactions.filter(item => !isNaN(item.val) && item.val > 0);
     console.log(`Saving ${finalData.length} records to DB...`);
 
-    db.serialize(() => {
-        const stmt = db.prepare(`
-            INSERT OR REPLACE INTO transactions 
-            (date, stock_code, name, market, open_price, high_price, low_price, close_price, trade_volume, trade_value, change, change_percent) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        db.run("BEGIN TRANSACTION");
-
-        finalData.forEach(row => {
-            stmt.run(
-                row.date, row.code, row.name, row.market,
-                row.open, row.high, row.low, row.close,
-                row.vol, row.val,
-                row.change, row.change_percent
-            );
-        });
-
-        db.run("COMMIT", (err) => {
-            if (err) console.error("Commit failed", err);
-            else console.log("DB Update Complete.");
-        });
-        stmt.finalize();
-    });
+    try {
+        await db.bulkInsert(finalData);
+        console.log("DB Update Complete.");
+    } catch (err) {
+        console.error("DB Insert Error:", err);
+    } finally {
+        db.close();
+    }
 };
 
 fetchStockData();

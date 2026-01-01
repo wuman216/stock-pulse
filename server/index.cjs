@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const db = require('./db.cjs');
+const db = require('./db_adapter.cjs');
 const { exec } = require('child_process');
 const path = require('path');
 
@@ -10,103 +10,111 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
+// Helper: Calculate date N days ago
+const getDaysAgo = (baseDateStr, days) => {
+    const d = new Date(baseDateStr);
+    d.setDate(d.getDate() - days);
+    return d.toISOString().split('T')[0];
+};
+
 // API: Get Top 20 Transactions by Value for the latest available date
 // Helper to extract last 30 days history
-const getStockHistory = (codes) => {
-    return new Promise((resolve, reject) => {
-        if (codes.length === 0) {
-            resolve([]);
-            return;
-        }
-        const placeholders = codes.map(() => '?').join(',');
-        // Fetch last 60 records per stock (approx 2-3 months) to ensure 30 trading days
-        const sql = `
-            SELECT stock_code, date, open_price, high_price, low_price, close_price 
-            FROM transactions 
-            WHERE stock_code IN (${placeholders}) 
-            AND date >= date((SELECT MAX(date) FROM transactions), '-60 days')
-            ORDER BY date ASC
-        `;
-        db.all(sql, codes, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
+const getStockHistory = async (codes, latestDate) => {
+    if (codes.length === 0) return [];
+
+    // Calculate cutoff date in JS to avoid DB-specific SQL (SQLite vs PG)
+    const cutoffDate = getDaysAgo(latestDate, 60);
+
+    const placeholders = codes.map(() => '?').join(',');
+    // Fetch last 60 records per stock to ensure enough trading days
+    const sql = `
+        SELECT stock_code, date, open_price, high_price, low_price, close_price 
+        FROM transactions 
+        WHERE stock_code IN (${placeholders}) 
+        AND date >= ?
+        ORDER BY date ASC
+    `;
+
+    const params = [...codes, cutoffDate];
+    return await db.query(sql, params);
 };
 
 // API: Get Top Transactions by Value with History
-app.get('/api/top10', (req, res) => {
+app.get('/api/top10', async (req, res) => {
     const market = req.query.market; // 'TWSE' or 'TPEx'
 
-    let marketFilter = "";
-    let params = [];
-
-    if (market) {
-        marketFilter = "AND market = ?";
-        params.push(market);
-    }
-
-    const sql = `
-    SELECT * FROM transactions 
-    WHERE date = (SELECT MAX(date) FROM transactions)
-    ${marketFilter}
-    ORDER BY trade_value DESC 
-    LIMIT 100
-  `;
-
-    db.all(sql, params, async (err, rows) => {
-        if (err) {
-            res.status(400).json({ "error": err.message });
-            return;
+    try {
+        // 1. Get latest date
+        const dateRes = await db.query("SELECT MAX(date) as max_date FROM transactions");
+        if (!dateRes || dateRes.length === 0 || !dateRes[0].max_date) {
+            return res.json({ message: "success", data: [] });
         }
+        const latestDate = dateRes[0].max_date;
+
+        // 2. Build query
+        let marketFilter = "";
+        let params = [latestDate];
+
+        if (market) {
+            marketFilter = "AND market = ?";
+            params.push(market);
+        }
+
+        const sql = `
+            SELECT * FROM transactions 
+            WHERE date = ?
+            ${marketFilter}
+            ORDER BY trade_value DESC 
+            LIMIT 100
+        `;
+
+        const rows = await db.query(sql, params);
 
         if (!rows || rows.length === 0) {
-            res.json({ message: "success", data: [] });
-            return;
+            return res.json({ message: "success", data: [] });
         }
 
-        try {
-            const codes = rows.map(r => r.stock_code);
-            // Deduplicate codes just in case
-            const uniqueCodes = [...new Set(codes)];
+        const codes = rows.map(r => r.stock_code);
+        const uniqueCodes = [...new Set(codes)];
 
-            const historyRows = await getStockHistory(uniqueCodes);
+        // 3. Fetch History
+        const historyRows = await getStockHistory(uniqueCodes, latestDate);
 
-            const stocksWithHistory = rows.map(stock => {
-                const stockHistory = historyRows.filter(h => h.stock_code === stock.stock_code);
+        // 4. Transform data
+        const stocksWithHistory = rows.map(stock => {
+            const stockHistory = historyRows.filter(h => h.stock_code === stock.stock_code);
 
-                // Kline: Last 10 days
-                const kline = stockHistory.slice(-10).map(h => ({
-                    date: h.date.slice(5).replace('-', '/'),
-                    open: h.open_price,
-                    high: h.high_price,
-                    low: h.low_price,
-                    close: h.close_price
-                }));
+            // Kline: Last 10 days
+            const kline = stockHistory.slice(-10).map(h => ({
+                date: h.date.slice(5).replace('-', '/'),
+                open: h.open_price,
+                high: h.high_price,
+                low: h.low_price,
+                close: h.close_price
+            }));
 
-                // Trend: Last 30 days
-                const trend = stockHistory.slice(-30).map(h => ({
-                    date: h.date.slice(5).replace('-', '/'),
-                    price: h.close_price
-                }));
+            // Trend: Last 30 days
+            const trend = stockHistory.slice(-30).map(h => ({
+                date: h.date.slice(5).replace('-', '/'),
+                price: h.close_price
+            }));
 
-                return {
-                    ...stock,
-                    kline,
-                    trend
-                };
-            });
+            return {
+                ...stock,
+                kline,
+                trend
+            };
+        });
 
-            res.json({
-                message: "success",
-                data: stocksWithHistory
-            });
-        } catch (histErr) {
-            console.error("History fetch error:", histErr);
-            // Fallback
-            res.json({ message: "success", data: rows });
-        }
-    });
+        res.json({
+            message: "success",
+            data: stocksWithHistory
+        });
+
+    } catch (err) {
+        console.error("API Error:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // API: Trigger Daily Update Manually
