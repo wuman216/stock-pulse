@@ -1,3 +1,9 @@
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { StockCard } from './components/StockCard';
+import { ChatBox } from './components/ChatBox';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
+import { TrendingUp } from 'lucide-react';
 import { Heatmap } from './components/Heatmap';
 
 interface StockData {
@@ -11,6 +17,48 @@ interface StockData {
   kline: any[];
   trend: any[];
 }
+
+// 模擬K線和走勢資料 (因為後端目前只有單日或少量交易資料，趨勢圖仍需模擬)
+const generateMockVisuals = (basePrice: number) => {
+  const klineData = [];
+  let currentPrice = basePrice;
+  const today = new Date(); // Or use the data date
+
+  for (let i = 9; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+
+    // Simple random walk
+    const openPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.05); // 5% vol
+    const closePrice = openPrice + (Math.random() - 0.5) * (basePrice * 0.05);
+    const highPrice = Math.max(openPrice, closePrice) + Math.random() * (basePrice * 0.02);
+    const lowPrice = Math.min(openPrice, closePrice) - Math.random() * (basePrice * 0.02);
+
+    klineData.push({
+      date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
+      open: openPrice,
+      close: closePrice,
+      high: highPrice,
+      low: lowPrice
+    });
+    currentPrice = closePrice;
+  }
+
+  // Trend
+  const trend = [];
+  currentPrice = basePrice;
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    currentPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.03);
+    trend.push({
+      date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
+      price: currentPrice
+    });
+  }
+
+  return { kline: klineData, trend, lastPrice: klineData[klineData.length - 1].close };
+};
 
 export default function App() {
   const [listedStocks, setListedStocks] = useState<StockData[]>([]);
