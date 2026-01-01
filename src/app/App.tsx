@@ -72,6 +72,7 @@ export default function App() {
   const [dataDate, setDataDate] = useState<string>('');
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Fetch available dates on mount
   useEffect(() => {
@@ -163,7 +164,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Popover>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant={"outline"}
@@ -184,6 +185,7 @@ export default function App() {
                   onSelect={(date) => {
                     if (date) {
                       setSelectedDate(format(date, "yyyy-MM-dd"));
+                      setIsCalendarOpen(false);
                     }
                   }}
                   disabled={(date) => {
