@@ -22,6 +22,34 @@ const fetchStockData = async () => {
 
     let allTransactions = [];
 
+    // --- 0. Fetch TWSE Company Info (for Shares Outstanding) ---
+    // API: https://openapi.twse.com.tw/v1/opendata/t187ap03_L
+    let twseSharesMap = {};
+    try {
+        console.log("[Info] Fetching TWSE Shares Outstanding...");
+        const resInfo = await axios.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L");
+        if (Array.isArray(resInfo.data)) {
+            resInfo.data.forEach(info => {
+                const code = info.公司代號;
+                const capital = parseInt(info.實收資本額 || "0", 10);
+                const parValueStr = info.普通股每股面額 || "10";
+                // Simple parsing for par value, usually "新台幣 10.0000元" -> 10. Default to 10 if failed.
+                let parValue = 10;
+                const match = parValueStr.match(/(\d+(\.\d+)?)/);
+                if (match) parValue = parseFloat(match[1]);
+
+                if (capital > 0) {
+                    // Shares = Capital / ParValue
+                    const shares = Math.floor(capital / parValue);
+                    twseSharesMap[code] = shares;
+                }
+            });
+        }
+        console.log(`[Info] Loaded shares info for ${Object.keys(twseSharesMap).length} companies.`);
+    } catch (e) {
+        console.error("[Warning] Failed to fetch TWSE shares info:", e.message);
+    }
+
     // --- 1. Fetch TWSE (Listed) ---
     try {
         const urlTWSE = `https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${dateStrTWSE}&type=ALLBUT0999`;
@@ -77,6 +105,14 @@ const fetchStockData = async () => {
                             }
                         }
 
+                        // Turnover Rate Calculation
+                        let turnoverRate = 0;
+                        let shares = twseSharesMap[code] || 0;
+                        // Determine shares if invalid?
+                        if (shares > 0) {
+                            turnoverRate = (vol / shares) * 100;
+                        }
+
                         allTransactions.push({
                             market: 'TWSE',
                             date: dbDate,
@@ -89,7 +125,9 @@ const fetchStockData = async () => {
                             low: parsePrice(item[idxLow]),
                             close: close,
                             change: change,
-                            change_percent: changePercent.toFixed(2)
+                            change_percent: changePercent.toFixed(2),
+                            turnover_rate: parseFloat(turnoverRate.toFixed(2)),
+                            shares_outstanding: shares
                         });
                     }
                 });
@@ -142,12 +180,23 @@ const fetchStockData = async () => {
                     const low = parseVal(item[6]);
                     const vol = parseInt(item[8].replace(/,/g, ''), 10);
 
+                    // TPEx has shares at column 15 (index 15) usually
+                    // fields: 代號, 名稱, 收盤, 漲跌, 開盤, 最高, 最低, 均價, 成交股數, 成交金額, 成交筆數, 最後買價, 最後買量, 最後賣價, 最後賣量, 發行股數, 次日漲停價, ...
+                    // Let's assume index 15 is shares.
+                    const shares = item[15] ? parseInt(item[15].replace(/,/g, ''), 10) : 0;
+
                     let changePercent = 0;
                     if (close > 0) {
                         const prevClose = close - change;
                         if (prevClose > 0) {
                             changePercent = (change / prevClose) * 100;
                         }
+                    }
+
+                    // Calc turnover rate
+                    let turnoverRate = 0;
+                    if (shares > 0) {
+                        turnoverRate = (vol / shares) * 100;
                     }
 
                     allTransactions.push({
@@ -162,7 +211,9 @@ const fetchStockData = async () => {
                         low: low,
                         close: close,
                         change: change,
-                        change_percent: changePercent.toFixed(2)
+                        change_percent: changePercent.toFixed(2),
+                        turnover_rate: parseFloat(turnoverRate.toFixed(2)),
+                        shares_outstanding: shares
                     });
                     tpexCount++;
                 }

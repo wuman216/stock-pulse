@@ -53,14 +53,19 @@ class DBAdapter {
                 trade_value INTEGER,
                 change REAL,
                 change_percent REAL,
+                turnover_rate REAL, 
+                shares_outstanding INTEGER,
                 UNIQUE(date, stock_code)
             )`);
+            // Attempt to add columns for existing tables (ignore errors if exist)
+            this.db.run(`ALTER TABLE transactions ADD COLUMN turnover_rate REAL`, () => { });
+            this.db.run(`ALTER TABLE transactions ADD COLUMN shares_outstanding INTEGER`, () => { }); `);
         });
     }
 
     async initPG() {
         const sql = `
-            CREATE TABLE IF NOT EXISTS transactions (
+            CREATE TABLE IF NOT EXISTS transactions(
                 id SERIAL PRIMARY KEY,
                 date TEXT NOT NULL,
                 stock_code TEXT NOT NULL,
@@ -74,12 +79,17 @@ class DBAdapter {
                 trade_value BIGINT,
                 change REAL,
                 change_percent REAL,
+                turnover_rate REAL,
+                shares_outstanding BIGINT,
                 UNIQUE(date, stock_code)
             );
-        `;
+            `;
         try {
             await this.client.query(sql);
-            console.log("PG Table 'transactions' ensured.");
+            // Attempt migration for existing tables
+            await this.client.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS turnover_rate REAL');
+            await this.client.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS shares_outstanding BIGINT');
+            console.log("PG Table 'transactions' ensured/migrated.");
         } catch (e) {
             console.error("PG Init Error:", e);
             throw e;
@@ -108,7 +118,7 @@ class DBAdapter {
             } else {
                 // PostgreSQL parameter syntax is $1, $2, not ?
                 let paramIndex = 1;
-                const parseSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+                const parseSql = sql.replace(/\?/g, () => `$${ paramIndex++ } `);
                 this.client.query(parseSql, params).then(res => {
                     resolve(res.rows || { changes: res.rowCount });
                 }).catch(reject);
@@ -126,13 +136,13 @@ class DBAdapter {
                 this.db.serialize(() => {
                     this.db.run("BEGIN TRANSACTION");
                     const stmt = this.db.prepare(`
-                        INSERT OR REPLACE INTO transactions 
-                        (date, stock_code, name, market, open_price, high_price, low_price, close_price, trade_volume, trade_value, change, change_percent) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     `);
+                        INSERT OR REPLACE INTO transactions
+                (date, stock_code, name, market, open_price, high_price, low_price, close_price, trade_volume, trade_value, change, change_percent, turnover_rate, shares_outstanding)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `);
 
                     data.forEach(row => {
-                        stmt.run(row.date, row.code, row.name, row.market, row.open, row.high, row.low, row.close, row.vol, row.val, row.change, row.change_percent);
+                        stmt.run(row.date, row.code, row.name, row.market, row.open, row.high, row.low, row.close, row.vol, row.val, row.change, row.change_percent, row.turnover_rate || 0, row.shares_outstanding || 0);
                     });
 
                     stmt.finalize();
@@ -147,27 +157,30 @@ class DBAdapter {
             try {
                 await this.client.query('BEGIN');
                 const sql = `
-                    INSERT INTO transactions 
-                    (date, stock_code, name, market, open_price, high_price, low_price, close_price, trade_volume, trade_value, change, change_percent) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                    ON CONFLICT (date, stock_code) DO UPDATE SET
-                    name = EXCLUDED.name,
-                    market = EXCLUDED.market,
-                    open_price = EXCLUDED.open_price,
-                    high_price = EXCLUDED.high_price,
-                    low_price = EXCLUDED.low_price,
-                    close_price = EXCLUDED.close_price,
-                    trade_volume = EXCLUDED.trade_volume,
-                    trade_value = EXCLUDED.trade_value,
-                    change = EXCLUDED.change,
-                    change_percent = EXCLUDED.change_percent;
-                `;
+                    INSERT INTO transactions
+                (date, stock_code, name, market, open_price, high_price, low_price, close_price, trade_volume, trade_value, change, change_percent, turnover_rate, shares_outstanding)
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    ON CONFLICT(date, stock_code) DO UPDATE SET
+            name = EXCLUDED.name,
+                market = EXCLUDED.market,
+                open_price = EXCLUDED.open_price,
+                high_price = EXCLUDED.high_price,
+                low_price = EXCLUDED.low_price,
+                close_price = EXCLUDED.close_price,
+                trade_volume = EXCLUDED.trade_volume,
+                trade_value = EXCLUDED.trade_value,
+                change = EXCLUDED.change,
+                change_percent = EXCLUDED.change_percent,
+                turnover_rate = EXCLUDED.turnover_rate,
+                shares_outstanding = EXCLUDED.shares_outstanding;
+            `;
 
                 for (const row of data) {
                     await this.client.query(sql, [
                         row.date, row.code, row.name, row.market,
                         row.open, row.high, row.low, row.close,
-                        row.vol, row.val, row.change, row.change_percent
+                        row.vol, row.val, row.change, row.change_percent,
+                        row.turnover_rate || 0, row.shares_outstanding || 0
                     ]);
                 }
                 await this.client.query('COMMIT');
