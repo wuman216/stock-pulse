@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: trasaction-amount
+    name: stock-pulse
     env: node
     buildCommand: npm install && npm run build
     startCommand: node server/index.cjs
