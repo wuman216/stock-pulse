@@ -52,12 +52,16 @@ app.get('/api/top10', async (req, res) => {
     const market = req.query.market; // 'TWSE' or 'TPEx'
 
     try {
-        // 1. Get latest date
-        const dateRes = await db.query("SELECT MAX(date) as max_date FROM transactions");
-        if (!dateRes || dateRes.length === 0 || !dateRes[0].max_date) {
-            return res.json({ message: "success", data: [] });
+        let latestDate = req.query.date;
+
+        if (!latestDate) {
+            // 1. Get latest date if not provided
+            const dateRes = await db.query("SELECT MAX(date) as max_date FROM transactions");
+            if (!dateRes || dateRes.length === 0 || !dateRes[0].max_date) {
+                return res.json({ message: "success", data: [] });
+            }
+            latestDate = dateRes[0].max_date;
         }
-        const latestDate = dateRes[0].max_date;
 
         // 2. Build query
         let marketFilter = "";
@@ -121,6 +125,18 @@ app.get('/api/top10', async (req, res) => {
 
     } catch (err) {
         console.error("API Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// API: Get all distinct dates available in DB
+app.get('/api/available-dates', async (req, res) => {
+    try {
+        const rows = await db.query("SELECT DISTINCT date FROM transactions ORDER BY date DESC");
+        const dates = rows.map(r => r.date);
+        res.json({ message: "success", data: dates });
+    } catch (err) {
+        console.error("Available Dates Error:", err);
         res.status(500).json({ error: err.message });
     }
 });

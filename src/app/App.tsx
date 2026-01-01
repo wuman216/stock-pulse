@@ -3,8 +3,13 @@ import axios from 'axios';
 import { StockCard } from './components/StockCard';
 import { ChatBox } from './components/ChatBox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
 import { Heatmap } from './components/Heatmap';
+import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
+import { Calendar } from './components/ui/calendar';
+import { format, parseISO } from 'date-fns';
+import { Button } from './components/ui/button';
+import { cn } from './components/ui/utils';
 
 interface StockData {
   code: string;
@@ -65,21 +70,44 @@ export default function App() {
   const [otcStocks, setOtcStocks] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataDate, setDataDate] = useState<string>('');
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+
+  // Fetch available dates on mount
+  useEffect(() => {
+    const fetchDates = async () => {
+      try {
+        const res = await axios.get('/api/available-dates');
+        if (res.data && res.data.data) {
+          const dates = res.data.data;
+          setAvailableDates(dates);
+          if (dates.length > 0) {
+            setSelectedDate(dates[0]); // Default to latest
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching dates:", err);
+      }
+    };
+    fetchDates();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedDate && availableDates.length > 0) return; // Wait for initial date
+
+      setLoading(true);
       try {
-        // Use relative path for production (Render)
+        const params = selectedDate ? { date: selectedDate } : {};
         const [resListed, resOtc] = await Promise.all([
-          axios.get('/api/top10?market=TWSE'),
-          axios.get('/api/top10?market=TPEx')
+          axios.get('/api/top10?market=TWSE', { params }),
+          axios.get('/api/top10?market=TPEx', { params })
         ]);
 
-        // Validate response structure
-        const listedData = resListed.data && resListed.data.data ? resListed.data.data : [];
-        const otcData = resOtc.data && resOtc.data.data ? resOtc.data.data : [];
+        const listedData = resListed.data?.data || [];
+        const otcData = resOtc.data?.data || [];
 
-        // Attempt to find the date from the first item
+        // Attempt to find the date from the response if not explicitly set
         const dateSource = listedData[0] || otcData[0];
         if (dateSource && dateSource.date) {
           setDataDate(dateSource.date.replace(/-/g, '/'));
@@ -89,7 +117,6 @@ export default function App() {
           let kline = item.kline;
           let trend = item.trend;
 
-          // Fallback to mock if no history (e.g. data insufficient)
           if (!kline || kline.length === 0) {
             const visuals = generateMockVisuals(item.close_price);
             kline = visuals.kline;
@@ -109,32 +136,64 @@ export default function App() {
           };
         });
 
-        setListedStocks(transform(listedData));
-        setOtcStocks(transform(otcData));
-        setLoading(false);
+        setListedStocks(transform(listedData).slice(0, 20)); // Limit to Top 20 as requested
+        setOtcStocks(transform(otcData).slice(0, 20));
       } catch (error) {
         console.error("Error fetching data:", error);
-        setLoading(false);
-        // Set empty to avoid crash
         setListedStocks([]);
         setOtcStocks([]);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    if (selectedDate || (availableDates.length === 0 && loading)) {
+      fetchData();
+    }
+  }, [selectedDate]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-md mx-auto">
         {/* 標題 */}
-        <div className="bg-white shadow-sm p-4 sticky top-0 z-10">
+        <div className="bg-white shadow-sm p-4 sticky top-0 z-10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-blue-600" />
-            <h1 className="text-gray-900">台股成交值排行</h1>
+            <h1 className="text-gray-900 font-bold">台股成交值排行</h1>
           </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {dataDate || new Date().toLocaleDateString()}
+
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[140px] h-9 justify-start text-left font-normal text-xs bg-gray-50 border-gray-200",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                  {selectedDate ? format(parseISO(selectedDate), "yyyy/MM/dd") : <span>選擇日期</span>}
+                  <ChevronDown className="ml-auto h-3.5 w-3.5 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 z-[100]" align="end">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate ? parseISO(selectedDate) : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedDate(format(date, "yyyy-MM-dd"));
+                    }
+                  }}
+                  disabled={(date) => {
+                    const dateStr = format(date, "yyyy-MM-dd");
+                    return !availableDates.includes(dateStr);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
