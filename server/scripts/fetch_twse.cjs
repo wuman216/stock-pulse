@@ -104,7 +104,7 @@ const fetchStockData = async () => {
 
     // --- 2. Fetch TPEx (OTC) ---
     try {
-        const urlTPEx = `https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=zh-tw&d=${dateStrTPEx}`;
+        const urlTPEx = `https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?date=${dateStrTPEx}&id=&response=json`;
         console.log(`[TPEx] GET ${urlTPEx}`);
 
         const res = await axios.get(urlTPEx, {
