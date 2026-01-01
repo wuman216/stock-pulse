@@ -1,61 +1,4 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import { StockCard } from './components/StockCard';
-import { ChatBox } from './components/ChatBox';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
-import { TrendingUp } from 'lucide-react';
-
-interface StockData {
-  code: string;
-  name: string;
-  price: number;
-  volume: number;
-  kline: any[];
-  trend: any[];
-}
-
-// 模擬K線和走勢資料 (因為後端目前只有基本交易資料)
-// 模擬K線和走勢資料 (因為後端目前只有單日或少量交易資料，趨勢圖仍需模擬)
-const generateMockVisuals = (basePrice: number) => {
-  const klineData = [];
-  let currentPrice = basePrice;
-  const today = new Date(); // Or use the data date
-
-  for (let i = 9; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    // ... logic same ...
-    const openPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.05); // 5% vol
-    const closePrice = openPrice + (Math.random() - 0.5) * (basePrice * 0.05);
-    const highPrice = Math.max(openPrice, closePrice) + Math.random() * (basePrice * 0.02);
-    const lowPrice = Math.min(openPrice, closePrice) - Math.random() * (basePrice * 0.02);
-
-    klineData.push({
-      date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
-      open: openPrice,
-      close: closePrice,
-      high: highPrice,
-      low: lowPrice
-    });
-    currentPrice = closePrice;
-  }
-
-  // Trend
-  const trend = [];
-  currentPrice = basePrice;
-  for (let i = 29; i >= 0; i--) {
-    // ... same ...
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    currentPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.03);
-    trend.push({
-      date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
-      price: currentPrice
-    });
-  }
-
-  return { kline: klineData, trend, lastPrice: klineData[klineData.length - 1].close };
-};
+import { Heatmap } from './components/Heatmap';
 
 interface StockData {
   code: string;
@@ -64,6 +7,7 @@ interface StockData {
   change: number;
   changePercent: number;
   volume: number;
+  turnoverRate?: string | number;
   kline: any[];
   trend: any[];
 }
@@ -77,9 +21,10 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Use relative path for production (Render)
         const [resListed, resOtc] = await Promise.all([
-          axios.get('http://localhost:3001/api/top10?market=TWSE'),
-          axios.get('http://localhost:3001/api/top10?market=TPEx')
+          axios.get('/api/top10?market=TWSE'),
+          axios.get('/api/top10?market=TPEx')
         ]);
 
         // Attempt to find the date from the first item
@@ -106,17 +51,21 @@ export default function App() {
             change: item.change || 0,
             changePercent: item.change_percent || 0,
             volume: item.trade_value / 100000000,
+            turnoverRate: 'N/A', // Placeholder as requested
             kline: kline,
             trend: trend
           };
         });
 
-        setListedStocks(transform(resListed.data.data));
-        setOtcStocks(transform(resOtc.data.data));
+        setListedStocks(transform(resListed.data.data || []));
+        setOtcStocks(transform(resOtc.data.data || []));
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
         setLoading(false);
+        // Set empty to avoid crash
+        setListedStocks([]);
+        setOtcStocks([]);
       }
     };
 
@@ -153,21 +102,27 @@ export default function App() {
               {loading ? (
                 <div className="text-center p-4">載入中...</div>
               ) : (
-                <div className="space-y-3">
-                  {listedStocks.map((stock, index) => (
-                    <StockCard
-                      key={stock.code}
-                      rank={index + 1}
-                      code={stock.code}
-                      name={stock.name}
-                      price={stock.price}
-                      change={stock.change}
-                      changePercent={stock.changePercent}
-                      volume={stock.volume}
-                      kline={stock.kline}
-                      trend={stock.trend}
-                    />
-                  ))}
+                <div className="space-y-4">
+                  {/* Heatmap Section */}
+                  <Heatmap data={listedStocks} title="上市成交值熱力圖" />
+
+                  {/* List Section */}
+                  <div className="space-y-3">
+                    {listedStocks.map((stock, index) => (
+                      <StockCard
+                        key={stock.code}
+                        rank={index + 1}
+                        code={stock.code}
+                        name={stock.name}
+                        price={stock.price}
+                        change={stock.change}
+                        changePercent={stock.changePercent}
+                        volume={stock.volume}
+                        kline={stock.kline}
+                        trend={stock.trend}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </TabsContent>
@@ -176,21 +131,27 @@ export default function App() {
               {loading ? (
                 <div className="text-center p-4">載入中...</div>
               ) : (
-                <div className="space-y-3">
-                  {otcStocks.map((stock, index) => (
-                    <StockCard
-                      key={stock.code}
-                      rank={index + 1}
-                      code={stock.code}
-                      name={stock.name}
-                      price={stock.price}
-                      change={stock.change}
-                      changePercent={stock.changePercent}
-                      volume={stock.volume}
-                      kline={stock.kline}
-                      trend={stock.trend}
-                    />
-                  ))}
+                <div className="space-y-4">
+                  {/* Heatmap Section */}
+                  <Heatmap data={otcStocks} title="上櫃成交值熱力圖" />
+
+                  {/* List Section */}
+                  <div className="space-y-3">
+                    {otcStocks.map((stock, index) => (
+                      <StockCard
+                        key={stock.code}
+                        rank={index + 1}
+                        code={stock.code}
+                        name={stock.name}
+                        price={stock.price}
+                        change={stock.change}
+                        changePercent={stock.changePercent}
+                        volume={stock.volume}
+                        kline={stock.kline}
+                        trend={stock.trend}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </TabsContent>
