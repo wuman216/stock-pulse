@@ -177,7 +177,13 @@ const fetchStockData = async () => {
     }
 
     // --- 3. Save All to DB ---
-    const finalData = allTransactions.filter(item => !isNaN(item.val) && item.val > 0);
+    const finalData = allTransactions
+        .filter(item => !isNaN(item.val) && item.val > 0)
+        .map(item => ({
+            ...item,
+            vol: Math.round(item.vol),
+            val: Math.round(item.val)
+        }));
     console.log(`Saving ${finalData.length} records to DB...`);
 
     try {
