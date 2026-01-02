@@ -3,7 +3,7 @@ import axios from 'axios';
 import { StockCard } from './components/StockCard';
 import { ChatBox } from './components/ChatBox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
-import { TrendingUp, Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, ChevronDown, Copy } from 'lucide-react';
 import { Heatmap } from './components/Heatmap';
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
 import { Calendar } from './components/ui/calendar';
@@ -169,7 +169,53 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Popover>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                const btn = e.currentTarget;
+                const originalText = btn.innerHTML;
+
+                // Helper to format a table
+                const formatTable = (title: string, data: StockData[]) => {
+                  const headers = ["排名", "代號", "名稱", "收盤價", "漲跌", "幅度%", "成交值(億)", "週轉率%", "5日漲幅", "20日乖離"];
+                  const rows = data.map((s, i) => [
+                    i + 1,
+                    s.code,
+                    s.name,
+                    s.price,
+                    s.change,
+                    s.changePercent + '%',
+                    s.volume.toFixed(2),
+                    (s.turnoverRate ?? 'N/A') + '%',
+                    typeof s.change5d === 'number' ? s.change5d.toFixed(1) + '%' : 'N/A',
+                    typeof s.bias20 === 'number' ? s.bias20.toFixed(1) + '%' : 'N/A'
+                  ].join('\t'));
+                  return [title, headers.join('\t'), ...rows].join('\n');
+                };
+
+                const text = [
+                  formatTable("市場: 上市 (TWSE)", listedStocks),
+                  "",
+                  formatTable("市場: 上櫃 (TPEx)", otcStocks)
+                ].join('\n');
+
+                navigator.clipboard.writeText(text).then(() => {
+                  btn.innerText = "已複製!";
+                  setTimeout(() => {
+                    // Restore icon and text using simpler logic since we can't easily reference original JSX here without more state
+                    // But actually, simpler is to just hardcode restoration
+                    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy w-3.5 h-3.5 mr-1"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>複製數據`;
+                  }, 2000);
+                });
+              }}
+              className="h-9 px-3 text-xs flex items-center bg-white"
+            >
+              <Copy className="w-3.5 h-3.5 mr-1" />
+              複製數據
+            </Button>
+
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant={"outline"}
