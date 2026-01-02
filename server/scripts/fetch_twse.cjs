@@ -2,9 +2,26 @@ const axios = require('axios');
 const db = require('../db_adapter.cjs');
 
 // CLI args for date: node fetch_twse.cjs 2025-12-30
+// CLI args for date: node fetch_twse.cjs 2025-12-30
 const args = process.argv.slice(2);
-const now = new Date();
-now.setDate(now.getDate() - 1); // Default to Yesterday
+
+// Calculate "Today" in Taipei Time (UTC+8)
+// This ensures that even if running on a UTC machine, we get the correct Calendar Day in Taiwan.
+const getTaipeiDate = () => {
+    const d = new Date();
+    // Taiwan is UTC+8
+    // If it's 07:00 UTC (15:00 Taipei), d is 07:00 UTC.
+    // We want the date component of Taipei time.
+    // Using a simple offset method:
+    const utc = d.getTime() + (d.getTimezoneOffset() * 60000); // UTC time in ms
+    const taipeiOffset = 8 * 60 * 60 * 1000;
+    return new Date(utc + taipeiOffset);
+};
+
+const now = getTaipeiDate();
+// Ensure we don't subtract a day anymore. 
+// We want "Today" because the script runs at 15:00 PM on trading day.
+
 const inputDate = args[0] ? new Date(args[0]) : now;
 
 // Format dates
