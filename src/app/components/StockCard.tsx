@@ -142,7 +142,7 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
 
       {/* Technical Indicators Area */}
       {(typeof change5d === 'number' || typeof bias20 === 'number') && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 mb-4 text-xs text-gray-600 border-t pt-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 mb-4 text-xs text-gray-600 bg-gray-50 rounded-md px-3 py-2">
           {typeof change5d === 'number' && (() => {
             let config = { label: '正常', className: 'bg-gray-100 text-gray-700' };
             if (change5d > 25) config = { label: '高風險', className: 'bg-red-600 text-white' };
