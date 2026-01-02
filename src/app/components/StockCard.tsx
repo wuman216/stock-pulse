@@ -141,9 +141,10 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 mb-4 text-xs text-gray-600 border-t pt-2">
           {typeof change5d === 'number' && (() => {
             let config = { label: '正常', className: 'bg-gray-100 text-gray-700' };
-            if (change5d > 15) config = { label: '高風險', className: 'bg-red-500 text-white' };
-            else if (change5d > 5) config = { label: '偏熱', className: 'bg-orange-500 text-white' };
-            else if (change5d < -5) config = { label: '偏冷', className: 'bg-green-500 text-white' };
+            if (change5d > 25) config = { label: '高風險', className: 'bg-red-600 text-white' };
+            else if (change5d > 15) config = { label: '強勢', className: 'bg-orange-600 text-white' };
+            else if (change5d > 5) config = { label: '偏強', className: 'bg-orange-400 text-white' };
+            else if (change5d < -5) config = { label: '弱勢', className: 'bg-blue-600 text-white' };
 
             return (
               <div className="flex items-center gap-2">
@@ -157,10 +158,10 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
 
           {typeof bias20 === 'number' && (() => {
             let config = { label: '正常', className: 'bg-gray-100 text-gray-700' };
-            if (bias20 > 10) config = { label: '警戒', className: 'bg-orange-500 text-white' };
-            else if (bias20 > 5) config = { label: '偏高', className: 'bg-yellow-500 text-white' };
-            else if (bias20 < -10) config = { label: '超跌', className: 'bg-blue-800 text-white' };
-            else if (bias20 < -5) config = { label: '偏低', className: 'bg-sky-400 text-white' };
+            if (bias20 > 15) config = { label: '過熱', className: 'bg-red-600 text-white' };
+            else if (bias20 > 10) config = { label: '乖離大', className: 'bg-orange-600 text-white' };
+            else if (bias20 > 2) config = { label: '偏多', className: 'bg-orange-400 text-white' };
+            else if (bias20 < -5) config = { label: '偏空', className: 'bg-blue-600 text-white' };
 
             return (
               <div className="flex items-center gap-2">
