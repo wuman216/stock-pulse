@@ -61,8 +61,8 @@ const getStockHistory = async (codes, latestDate) => {
     if (codes.length === 0) return [];
 
     // Calculate cutoff date in JS to avoid DB-specific SQL (SQLite vs PG)
-    // Fetch 90 days to ensure enough data for 60-day trend
-    const cutoffDate = getDaysAgo(latestDate, 90);
+    // Fetch 150 days to ensure enough data for 60MA calculation for the last 60 days
+    const cutoffDate = getDaysAgo(latestDate, 150);
 
     const placeholders = codes.map(() => '?').join(',');
     const sql = `
@@ -144,20 +144,37 @@ app.get('/api/top10', async (req, res) => {
         const stocksWithHistory = rows.map(stock => {
             const stockHistory = historyMap.get(stock.stock_code) || [];
 
-            // Kline: Last 20 days
-            const kline = stockHistory.slice(-20).map(h => ({
-                date: h.date.slice(5).replace('-', '/'),
-                open: h.open_price,
-                high: h.high_price,
-                low: h.low_price,
-                close: h.close_price
-            }));
+            // Kline: Last 60 days with MAs
+            const len = stockHistory.length;
+            const klineWindow = 60;
+            const targetHistory = stockHistory.slice(-klineWindow);
 
-            // Trend: Last 60 days
-            const trend = stockHistory.slice(-60).map(h => ({
-                date: h.date.slice(5).replace('-', '/'),
-                price: h.close_price
-            }));
+            const calculateMA = (days, endIndex) => {
+                if (endIndex < days - 1) return null;
+                const sum = stockHistory
+                    .slice(endIndex - days + 1, endIndex + 1)
+                    .reduce((acc, curr) => acc + curr.close_price, 0);
+                return sum / days;
+            };
+
+            const kline = targetHistory.map((h, i) => {
+                // Calculate the actual index in the full stockHistory array
+                // stockHistory = [ ... (older), ... targetHistory]
+                // If targetHistory is the last N elements, then index in stockHistory is:
+                // (len - targetHistory.length) + i
+                const realIndex = (len - targetHistory.length) + i;
+
+                return {
+                    date: h.date.slice(5).replace('-', '/'),
+                    open: h.open_price,
+                    high: h.high_price,
+                    low: h.low_price,
+                    close: h.close_price,
+                    ma5: calculateMA(5, realIndex),
+                    ma20: calculateMA(20, realIndex),
+                    ma60: calculateMA(60, realIndex)
+                };
+            });
 
             // Calculate 5-Day Change
             let change5d = null;
@@ -186,7 +203,7 @@ app.get('/api/top10', async (req, res) => {
                 change_5d: change5d,
                 bias_20: bias20,
                 kline,
-                trend,
+                trend: [], // Trend removed, kept empty for interface compatibility if needed
                 has_futures: futuresSet.has(stock.stock_code)
             };
         });

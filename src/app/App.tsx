@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { StockCard } from './components/StockCard';
-import { ChatBox } from './components/ChatBox';
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { TrendingUp, Calendar as CalendarIcon, ChevronDown, Copy } from 'lucide-react';
 import { Heatmap } from './components/Heatmap';
@@ -27,46 +27,57 @@ interface StockData {
 }
 
 // 模擬K線和走勢資料 (因為後端目前只有單日或少量交易資料，趨勢圖仍需模擬)
+// 模擬K線和走勢資料 (因為後端目前只有單日或少量交易資料，趨勢圖仍需模擬)
 const generateMockVisuals = (basePrice: number, dateStr?: string) => {
   const klineData = [];
   let currentPrice = basePrice;
   // Use provided date or fallback to today
   const anchorDate = dateStr ? parseISO(dateStr) : new Date();
 
-  for (let i = 19; i >= 0; i--) {
+  // Generate 60 days of K-Lines
+  const days = 60;
+
+  // Create a longer buffer for MA calc (60 + 60 = 120)
+  const totalDays = days + 60;
+  const historyPrices: number[] = [];
+
+  // Generate backwards from today
+  for (let i = totalDays - 1; i >= 0; i--) {
     const date = new Date(anchorDate);
-    date.setDate(anchorDate.getDate() - i);
+    date.setDate(anchorDate.getDate() - i); // Simple day subtraction (ignoring weekends for mock)
 
     // Simple random walk
-    const openPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.05); // 5% vol
-    const closePrice = openPrice + (Math.random() - 0.5) * (basePrice * 0.05);
-    const highPrice = Math.max(openPrice, closePrice) + Math.random() * (basePrice * 0.02);
-    const lowPrice = Math.min(openPrice, closePrice) - Math.random() * (basePrice * 0.02);
+    const vol = basePrice * 0.03;
+    const openPrice = currentPrice + (Math.random() - 0.5) * vol;
+    const closePrice = openPrice + (Math.random() - 0.5) * vol;
+    const highPrice = Math.max(openPrice, closePrice) + Math.random() * (vol * 0.5);
+    const lowPrice = Math.min(openPrice, closePrice) - Math.random() * (vol * 0.5);
 
-    klineData.push({
-      date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
-      open: openPrice,
-      close: closePrice,
-      high: highPrice,
-      low: lowPrice
-    });
+    historyPrices.push(closePrice);
+
+    // Only push to klineData if within the last `days`
+    if (i < days) {
+      const ma = (n: number) => {
+        if (historyPrices.length < n) return null;
+        const slice = historyPrices.slice(-n);
+        return slice.reduce((a, b) => a + b, 0) / n;
+      };
+
+      klineData.push({
+        date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
+        open: openPrice,
+        close: closePrice,
+        high: highPrice,
+        low: lowPrice,
+        ma5: ma(5),
+        ma20: ma(20),
+        ma60: ma(60)
+      });
+    }
     currentPrice = closePrice;
   }
 
-  // Trend
-  const trend = [];
-  currentPrice = basePrice;
-  for (let i = 59; i >= 0; i--) {
-    const date = new Date(anchorDate);
-    date.setDate(anchorDate.getDate() - i);
-    currentPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.03);
-    trend.push({
-      date: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`,
-      price: currentPrice
-    });
-  }
-
-  return { kline: klineData, trend, lastPrice: klineData[klineData.length - 1].close };
+  return { kline: klineData, trend: [], lastPrice: klineData[klineData.length - 1].close };
 };
 
 export default function App() {
@@ -162,7 +173,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md md:max-w-7xl mx-auto">
         {/* 標題 */}
         <div className="bg-white shadow-sm p-4 sticky top-0 z-10 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -253,83 +264,80 @@ export default function App() {
         </div>
 
         {/* Tabs */}
+        {/* Content Area */}
         <div className="p-4">
-          <Tabs defaultValue="listed" className="w-full">
+
+          {/* Mobile Tabs Controller (Hidden on Desktop) */}
+          <Tabs defaultValue="listed" className="w-full md:hidden">
             <TabsList className="w-full mb-4">
-              <TabsTrigger value="listed" className="flex-1">
-                上市成交值
-              </TabsTrigger>
-              <TabsTrigger value="otc" className="flex-1">
-                上櫃成交值
-              </TabsTrigger>
+              <TabsTrigger value="listed" className="flex-1">上市成交值</TabsTrigger>
+              <TabsTrigger value="otc" className="flex-1">上櫃成交值</TabsTrigger>
             </TabsList>
 
             <TabsContent value="listed">
-              {loading ? (
-                <div className="text-center p-4">載入中...</div>
-              ) : (
+              {loading ? <div className="text-center p-4">載入中...</div> : (
                 <div className="space-y-4">
-                  {/* Heatmap Section */}
                   <Heatmap data={listedStocks} title="上市成交值熱力圖" />
-
-                  {/* List Section */}
                   <div className="space-y-3">
                     {listedStocks.map((stock, index) => (
-                      <StockCard
-                        key={stock.code}
-                        rank={index + 1}
-                        code={stock.code}
-                        name={stock.name}
-                        price={stock.price}
-                        change={stock.change}
-                        changePercent={stock.changePercent}
-                        volume={stock.volume}
-                        turnoverRate={stock.turnoverRate}
-                        change5d={stock.change5d}
-                        bias20={stock.bias20}
-                        hasFutures={stock.hasFutures}
-                        kline={stock.kline}
-                        trend={stock.trend}
-                      />
+                      <StockCard key={stock.code} rank={index + 1} {...stock} />
                     ))}
                   </div>
                 </div>
               )}
             </TabsContent>
-
             <TabsContent value="otc">
-              {loading ? (
-                <div className="text-center p-4">載入中...</div>
-              ) : (
+              {loading ? <div className="text-center p-4">載入中...</div> : (
                 <div className="space-y-4">
-                  {/* Heatmap Section */}
                   <Heatmap data={otcStocks} title="上櫃成交值熱力圖" />
-
-                  {/* List Section */}
                   <div className="space-y-3">
                     {otcStocks.map((stock, index) => (
-                      <StockCard
-                        key={stock.code}
-                        rank={index + 1}
-                        code={stock.code}
-                        name={stock.name}
-                        price={stock.price}
-                        change={stock.change}
-                        changePercent={stock.changePercent}
-                        volume={stock.volume}
-                        turnoverRate={stock.turnoverRate}
-                        change5d={stock.change5d}
-                        bias20={stock.bias20}
-                        hasFutures={stock.hasFutures}
-                        kline={stock.kline}
-                        trend={stock.trend}
-                      />
+                      <StockCard key={stock.code} rank={index + 1} {...stock} />
                     ))}
                   </div>
                 </div>
               )}
             </TabsContent>
           </Tabs>
+
+          {/* Desktop Dual Column Layout (Hidden on Mobile) */}
+          <div className="hidden md:grid grid-cols-2 gap-6">
+            {/* Left Column: TWSE */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+                <span className="w-2 h-6 bg-blue-600 rounded-sm"></span>
+                上市成交值排行
+              </h2>
+              {loading ? <div className="text-center p-10">資料載入中...</div> : (
+                <div className="space-y-4">
+                  <Heatmap data={listedStocks} title="上市熱力圖" />
+                  <div className="space-y-3">
+                    {listedStocks.map((stock, index) => (
+                      <StockCard key={stock.code} rank={index + 1} {...stock} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: OTC */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+                <span className="w-2 h-6 bg-green-600 rounded-sm"></span>
+                上櫃成交值排行
+              </h2>
+              {loading ? <div className="text-center p-10">資料載入中...</div> : (
+                <div className="space-y-4">
+                  <Heatmap data={otcStocks} title="上櫃熱力圖" />
+                  <div className="space-y-3">
+                    {otcStocks.map((stock, index) => (
+                      <StockCard key={stock.code} rank={index + 1} {...stock} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* 說明 */}
           <div className="mt-6 text-center text-gray-400 text-xs">
@@ -338,8 +346,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* AI 聊天助手 */}
-      <ChatBox />
+
     </div>
   );
 }

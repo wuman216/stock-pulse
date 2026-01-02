@@ -2,16 +2,14 @@ import { LineChart, Line, Tooltip, ComposedChart, Bar, XAxis, YAxis, CartesianGr
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface KLineData {
-  date: string;  // MM/DD 格式
+  date: string;
   open: number;
   close: number;
   high: number;
   low: number;
-}
-
-interface TrendData {
-  date: string;  // MM/DD 格式
-  price: number;
+  ma5?: number;
+  ma20?: number;
+  ma60?: number;
 }
 
 interface StockCardProps {
@@ -27,10 +25,10 @@ interface StockCardProps {
   bias20?: number;
   hasFutures?: boolean;
   kline: KLineData[];
-  trend: TrendData[];
+  trend?: any[]; // Keep as optional/ignored for now to avoid breaking parent passing it
 }
 
-export function StockCard({ rank, code, name, price, change, changePercent, volume, turnoverRate, change5d, bias20, hasFutures, kline, trend }: StockCardProps) {
+export function StockCard({ rank, code, name, price, change, changePercent, volume, turnoverRate, change5d, bias20, hasFutures, kline }: StockCardProps) {
   // Determine color based on change
   const isRising = change > 0;
   const isFalling = change < 0;
@@ -45,30 +43,38 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
     open: k.open,
     close: k.close,
     priceRange: [k.low, k.high],
-    isRising: k.close >= k.open
+    isRising: k.close >= k.open,
+    ma5: k.ma5,
+    ma20: k.ma20,
+    ma60: k.ma60
   }));
 
   // Calculate custom ticks: Max, Min, Average
-  const getTicks = (data: any[], type: 'kline' | 'trend') => {
+  const getTicks = (data: any[]) => {
     if (!data || data.length === 0) return [];
-    const isKline = type === 'kline';
-    const values = data.map(d => isKline ? d.close : d.price);
-    const allHighs = isKline ? data.map(d => d.high) : values;
-    const allLows = isKline ? data.map(d => d.low) : values;
 
-    // Safety check for empty arrays or NaNs
-    if (allHighs.length === 0) return [];
+    // Collect all relevant values to determine chart scale
+    const allValues = [
+      ...data.map(d => d.high),
+      ...data.map(d => d.low),
+      ...data.map(d => d.ma5).filter((v: number) => v != null),
+      ...data.map(d => d.ma20).filter((v: number) => v != null),
+      ...data.map(d => d.ma60).filter((v: number) => v != null)
+    ];
 
-    const max = Math.max(...allHighs);
-    const min = Math.min(...allLows);
+    if (allValues.length === 0) return [];
+
+    const max = Math.max(...allValues);
+    const min = Math.min(...allValues);
     const rawMid = (max + min) / 2;
+    // Format mid to avoid long decimals
     const mid = rawMid < 100 ? parseFloat(rawMid.toFixed(1)) : Math.round(rawMid);
 
+    // Add padding to max/min to avoid touching edges
     return Array.from(new Set([min, mid, max])).sort((a, b) => a - b);
   };
 
-  const klineTicks = getTicks(kline, 'kline');
-  const trendTicks = getTicks(trend, 'trend');
+  const klineTicks = getTicks(kline);
 
   const CustomBar = (props: any) => {
     const { x, y, width, height, payload } = props;
@@ -181,15 +187,22 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
 
       {/* K線和走勢圖 */}
       <div className="space-y-3 mt-4">
-        {/* 20日K線 */}
+        {/* 60日K線 + MA */}
         <div>
-          <div className="text-xs text-gray-500 mb-2">20日K線</div>
-          <ResponsiveContainer width="100%" height={100}>
+          <div className="flex items-center gap-4 text-xs mb-2">
+            <span className="text-gray-500">60日K線 + 均線</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[#a855f7]">5MA</span>
+              <span className="text-[#eab308]">20MA</span>
+              <span className="text-[#22c55e]">60MA</span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
             <ComposedChart
               data={klineChartData}
               margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
             >
-              <CartesianGrid vertical={false} stroke="#e5e7eb" />
+              <CartesianGrid vertical={false} stroke="#f3f4f6" />
               <YAxis
                 domain={[klineTicks[0], klineTicks[klineTicks.length - 1]]}
                 ticks={klineTicks}
@@ -201,61 +214,36 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
                 tickLine={false}
               />
               <XAxis dataKey="day" hide />
+
+              {/* MA Lines: Drawn first to be behind candles or semi-transparent */}
+              <Line type="monotone" dataKey="ma5" stroke="#a855f7" strokeWidth={1} dot={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="ma20" stroke="#eab308" strokeWidth={1} dot={false} isAnimationActive={false} />
+              <Line type="monotone" dataKey="ma60" stroke="#22c55e" strokeWidth={1} dot={false} isAnimationActive={false} />
+
               <Bar
                 dataKey="priceRange"
                 shape={<CustomBar />}
                 isAnimationActive={false}
               />
+
               <Tooltip
                 contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
                 formatter={(value: any, name: any, props: any) => {
                   const { payload } = props;
-                  return [
-                    `開:${payload.open.toFixed(2)} 高:${payload.high.toFixed(2)} 低:${payload.low.toFixed(2)} 收:${payload.close.toFixed(2)}`,
-                    ''
-                  ];
+                  if (name === 'priceRange') {
+                    return [
+                      `開:${payload.open.toFixed(2)} 高:${payload.high.toFixed(2)} 低:${payload.low.toFixed(2)} 收:${payload.close.toFixed(2)}`,
+                      'OHLC'
+                    ];
+                  }
+                  if (name === 'ma5') return [value.toFixed(2), '5MA'];
+                  if (name === 'ma20') return [value.toFixed(2), '20MA'];
+                  if (name === 'ma60') return [value.toFixed(2), '60MA'];
+                  return [value, name];
                 }}
                 labelFormatter={(label: any, payload: any) => payload && payload[0] ? payload[0].payload.date : label}
               />
             </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* 60日走勢 */}
-        <div>
-          <div className="text-xs text-gray-500 mb-2">近60日走勢</div>
-          <ResponsiveContainer width="100%" height={80}>
-            <LineChart data={trend} margin={{ top: 10, right: 0, bottom: 10, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="#e5e7eb" />
-              <XAxis dataKey="date" hide />
-              {kline.length > 0 && (
-                <ReferenceArea x1={kline[0].date} x2={kline[kline.length - 1].date} fill="#e5e7eb" fillOpacity={0.5} />
-              )}
-              <YAxis
-                type="number"
-                domain={[trendTicks[0], trendTicks[trendTicks.length - 1]]}
-                ticks={trendTicks}
-                orientation="right"
-                interval={0}
-                tick={{ fontSize: 10, fill: '#6b7280' }}
-                width={40}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="price"
-                stroke={isRising ? '#dc2626' : '#16a34a'}
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-              />
-              <Tooltip
-                contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
-                formatter={(value: any) => [`$${value.toFixed(2)}`, '價格']}
-                labelFormatter={(label: any, payload: any) => payload && payload[0] ? payload[0].payload.date : label}
-              />
-            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
