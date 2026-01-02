@@ -34,7 +34,7 @@ const getTurnoverColor = (rate: number) => {
 };
 
 const CustomContent = (props: any) => {
-    const { x, y, width, height, name, changePercent, price, volume, turnoverRate, code } = props;
+    const { x, y, width, height, name, volume, turnoverRate } = props;
 
     // Use Turnover Color based on Turnover Rate
     const bgColor = getTurnoverColor(Number(turnoverRate) || 0);
@@ -56,19 +56,18 @@ const CustomContent = (props: any) => {
             {width > 40 && height > 30 && (
                 <foreignObject x={x} y={y} width={width} height={height}>
                     <div className="h-full w-full flex flex-col items-center justify-center text-white p-1 text-center leading-tight overflow-hidden">
-                        <div className="font-bold text-xs sm:text-sm drop-shadow-md">{code} {name}</div>
-                        {height > 50 && (
-                            <>
-                                <div className="text-xs font-mono drop-shadow-md">${price}</div>
-                                <div className="text-xs font-mono drop-shadow-md">
-                                    {Number(changePercent) > 0 ? '+' : ''}{changePercent}%
-                                </div>
-                                {height > 80 && (
-                                    <div className="text-[10px] opacity-90 mt-1 drop-shadow-md">
-                                        {(Number(volume) || 0).toFixed(1)}億 | {turnoverRate ?? 'N/A'}%
-                                    </div>
+                        <div className="font-bold text-xs sm:text-sm drop-shadow-md">{name}</div>
+                        {height > 35 && (
+                            <div className={`text-[10px] opacity-95 mt-0.5 drop-shadow-md font-mono flex flex-col items-center ${height > 55 ? 'leading-none gap-0.5' : ''}`}>
+                                {height > 55 ? (
+                                    <>
+                                        <span>{(Number(volume) || 0).toFixed(1)}億</span>
+                                        <span>{turnoverRate ?? 'N/A'}%</span>
+                                    </>
+                                ) : (
+                                    <span>{(Number(volume) || 0).toFixed(1)}億, {turnoverRate ?? 'N/A'}%</span>
                                 )}
-                            </>
+                            </div>
                         )}
                     </div>
                 </foreignObject>

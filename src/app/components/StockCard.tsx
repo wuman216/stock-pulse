@@ -1,4 +1,4 @@
-import { LineChart, Line, Tooltip, ComposedChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { LineChart, Line, Tooltip, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceArea, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface KLineData {
@@ -184,73 +184,79 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
         {/* 20日K線 */}
         <div>
           <div className="text-xs text-gray-500 mb-2">20日K線</div>
-          <ComposedChart
-            width={320}
-            height={100}
-            data={klineChartData}
-            margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
-          >
-            <CartesianGrid vertical={false} stroke="#e5e7eb" />
-            <YAxis
-              domain={[klineTicks[0], klineTicks[klineTicks.length - 1]]}
-              ticks={klineTicks}
-              orientation="right"
-              interval={0}
-              tick={{ fontSize: 10, fill: '#6b7280' }}
-              width={40}
-              axisLine={false}
-              tickLine={false}
-            />
-            <XAxis dataKey="day" hide />
-            <Bar
-              dataKey="priceRange"
-              shape={<CustomBar />}
-              isAnimationActive={false}
-            />
-            <Tooltip
-              contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
-              formatter={(value: any, name: any, props: any) => {
-                const { payload } = props;
-                return [
-                  `開:${payload.open.toFixed(2)} 高:${payload.high.toFixed(2)} 低:${payload.low.toFixed(2)} 收:${payload.close.toFixed(2)}`,
-                  ''
-                ];
-              }}
-              labelFormatter={(label: any, payload: any) => payload && payload[0] ? payload[0].payload.date : label}
-            />
-          </ComposedChart>
+          <ResponsiveContainer width="100%" height={100}>
+            <ComposedChart
+              data={klineChartData}
+              margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
+            >
+              <CartesianGrid vertical={false} stroke="#e5e7eb" />
+              <YAxis
+                domain={[klineTicks[0], klineTicks[klineTicks.length - 1]]}
+                ticks={klineTicks}
+                orientation="right"
+                interval={0}
+                tick={{ fontSize: 10, fill: '#6b7280' }}
+                width={40}
+                axisLine={false}
+                tickLine={false}
+              />
+              <XAxis dataKey="day" hide />
+              <Bar
+                dataKey="priceRange"
+                shape={<CustomBar />}
+                isAnimationActive={false}
+              />
+              <Tooltip
+                contentStyle={{ fontSize: '11px', padding: '4px 8px' }}
+                formatter={(value: any, name: any, props: any) => {
+                  const { payload } = props;
+                  return [
+                    `開:${payload.open.toFixed(2)} 高:${payload.high.toFixed(2)} 低:${payload.low.toFixed(2)} 收:${payload.close.toFixed(2)}`,
+                    ''
+                  ];
+                }}
+                labelFormatter={(label: any, payload: any) => payload && payload[0] ? payload[0].payload.date : label}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
 
         {/* 60日走勢 */}
         <div>
           <div className="text-xs text-gray-500 mb-2">近60日走勢</div>
-          <LineChart width={320} height={80} data={trend} margin={{ top: 10, right: 0, bottom: 10, left: 0 }}>
-            <CartesianGrid vertical={false} stroke="#e5e7eb" />
-            <YAxis
-              type="number"
-              domain={[trendTicks[0], trendTicks[trendTicks.length - 1]]}
-              ticks={trendTicks}
-              orientation="right"
-              interval={0}
-              tick={{ fontSize: 10, fill: '#6b7280' }}
-              width={40}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="price"
-              stroke={isRising ? '#dc2626' : '#16a34a'}
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-            <Tooltip
-              contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
-              formatter={(value: any) => [`$${value.toFixed(2)}`, '價格']}
-              labelFormatter={(label: any, payload: any) => payload && payload[0] ? payload[0].payload.date : label}
-            />
-          </LineChart>
+          <ResponsiveContainer width="100%" height={80}>
+            <LineChart data={trend} margin={{ top: 10, right: 0, bottom: 10, left: 0 }}>
+              <CartesianGrid vertical={false} stroke="#e5e7eb" />
+              <XAxis dataKey="date" hide />
+              {kline.length > 0 && (
+                <ReferenceArea x1={kline[0].date} x2={kline[kline.length - 1].date} fill="#e5e7eb" fillOpacity={0.5} />
+              )}
+              <YAxis
+                type="number"
+                domain={[trendTicks[0], trendTicks[trendTicks.length - 1]]}
+                ticks={trendTicks}
+                orientation="right"
+                interval={0}
+                tick={{ fontSize: 10, fill: '#6b7280' }}
+                width={40}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="price"
+                stroke={isRising ? '#dc2626' : '#16a34a'}
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Tooltip
+                contentStyle={{ fontSize: '12px', padding: '4px 8px' }}
+                formatter={(value: any) => [`$${value.toFixed(2)}`, '價格']}
+                labelFormatter={(label: any, payload: any) => payload && payload[0] ? payload[0].payload.date : label}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
