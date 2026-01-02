@@ -2,12 +2,13 @@ console.log('--- Startup Diagnostics ---');
 console.log('CWD:', process.cwd());
 console.log('DATABASE_URL exists in env:', !!process.env.DATABASE_URL);
 if (process.env.DATABASE_URL) {
-    console.log('DATABASE_URL prefix:', process.env.DATABASE_URL.substring(0, 15) + '...');
+    console.log('DATABASE_URL is set.');
 }
 console.log('---------------------------');
 
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const db = require('./db_adapter.cjs');
 const { exec } = require('child_process');
 const path = require('path');
@@ -18,6 +19,18 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// 3. Security: Rate Limiter
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: { message: "Too many requests, please try again later." }
+});
+
+// Apply rate limiting to all requests that match /api/
+app.use('/api/', apiLimiter);
 
 // Load futures list
 const futuresPath = path.resolve(__dirname, 'data/futures.json');
@@ -69,6 +82,11 @@ const getStockHistory = async (codes, latestDate) => {
 app.get('/api/top10', async (req, res) => {
     const _start = Date.now();
     const market = req.query.market; // 'TWSE' or 'TPEx'
+
+    // 5. Security: Input Validation
+    if (market && !['TWSE', 'TPEx'].includes(market)) {
+        return res.status(400).json({ error: 'Invalid market type. Must be TWSE or TPEx.' });
+    }
 
     try {
         let latestDate = req.query.date;
@@ -199,6 +217,12 @@ app.get('/api/available-dates', async (req, res) => {
 
 // API: Trigger Daily Update Manually
 app.post('/api/refresh', (req, res) => {
+    // 1. Security: Authentication
+    const apiKey = req.headers['x-api-key'];
+    if (!process.env.ADMIN_API_KEY || apiKey !== process.env.ADMIN_API_KEY) {
+        return res.status(403).json({ error: 'Forbidden: Invalid or missing API Key' });
+    }
+
     console.log("Manual update triggered...");
     exec('node server/scripts/fetch_twse.cjs', { cwd: path.resolve(__dirname, '..') }, (error, stdout, stderr) => {
         if (error) {
