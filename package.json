@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "server": "node server/index.cjs",
+    "dev": "concurrently \"npm:server\" \"vite\""
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -68,6 +69,7 @@
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
     "vaul": "1.1.2",
+    "xlsx": "^0.18.5",
     "yahoo-finance2": "^3.10.2"
   },
   "devDependencies": {

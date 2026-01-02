@@ -11,12 +11,29 @@ const cors = require('cors');
 const db = require('./db_adapter.cjs');
 const { exec } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Load futures list
+const futuresPath = path.resolve(__dirname, 'data/futures.json');
+let futuresSet = new Set();
+try {
+    if (fs.existsSync(futuresPath)) {
+        const raw = fs.readFileSync(futuresPath, 'utf-8');
+        const arr = JSON.parse(raw);
+        futuresSet = new Set(arr);
+        console.log(`[Init] Loaded ${futuresSet.size} futures targets.`);
+    } else {
+        console.log("[Init] Futures list not found at", futuresPath);
+    }
+} catch (e) {
+    console.error("[Init] Failed to load futures list:", e);
+}
 
 // Helper: Calculate date N days ago
 const getDaysAgo = (baseDateStr, days) => {
@@ -26,15 +43,15 @@ const getDaysAgo = (baseDateStr, days) => {
 };
 
 // API: Get Top 20 Transactions by Value for the latest available date
-// Helper to extract last 30 days history
+// Helper to extract last history
 const getStockHistory = async (codes, latestDate) => {
     if (codes.length === 0) return [];
 
     // Calculate cutoff date in JS to avoid DB-specific SQL (SQLite vs PG)
-    const cutoffDate = getDaysAgo(latestDate, 60);
+    // Fetch 90 days to ensure enough data for 60-day trend
+    const cutoffDate = getDaysAgo(latestDate, 90);
 
     const placeholders = codes.map(() => '?').join(',');
-    // Fetch last 60 records per stock to ensure enough trading days
     const sql = `
         SELECT stock_code, date, open_price, high_price, low_price, close_price 
         FROM transactions 
@@ -50,6 +67,7 @@ const getStockHistory = async (codes, latestDate) => {
 
 // API: Get Top Transactions by Value with History
 app.get('/api/top10', async (req, res) => {
+    const _start = Date.now();
     const market = req.query.market; // 'TWSE' or 'TPEx'
 
     try {
@@ -91,14 +109,25 @@ app.get('/api/top10', async (req, res) => {
         const uniqueCodes = [...new Set(codes)];
 
         // 3. Fetch History
+        const _hStart = Date.now();
         const historyRows = await getStockHistory(uniqueCodes, latestDate);
+        console.log(`[Perf] History Fetch: ${Date.now() - _hStart}ms`);
+
+        // Optimize: Group history by stock_code to avoid O(N*M) filtering
+        const historyMap = new Map();
+        historyRows.forEach(h => {
+            if (!historyMap.has(h.stock_code)) {
+                historyMap.set(h.stock_code, []);
+            }
+            historyMap.get(h.stock_code).push(h);
+        });
 
         // 4. Transform data
         const stocksWithHistory = rows.map(stock => {
-            const stockHistory = historyRows.filter(h => h.stock_code === stock.stock_code);
+            const stockHistory = historyMap.get(stock.stock_code) || [];
 
-            // Kline: Last 10 days
-            const kline = stockHistory.slice(-10).map(h => ({
+            // Kline: Last 20 days
+            const kline = stockHistory.slice(-20).map(h => ({
                 date: h.date.slice(5).replace('-', '/'),
                 open: h.open_price,
                 high: h.high_price,
@@ -106,8 +135,8 @@ app.get('/api/top10', async (req, res) => {
                 close: h.close_price
             }));
 
-            // Trend: Last 30 days
-            const trend = stockHistory.slice(-30).map(h => ({
+            // Trend: Last 60 days
+            const trend = stockHistory.slice(-60).map(h => ({
                 date: h.date.slice(5).replace('-', '/'),
                 price: h.close_price
             }));
@@ -139,10 +168,12 @@ app.get('/api/top10', async (req, res) => {
                 change_5d: change5d,
                 bias_20: bias20,
                 kline,
-                trend
+                trend,
+                has_futures: futuresSet.has(stock.stock_code)
             };
         });
 
+        console.log(`[Perf] API Top10: ${Date.now() - _start}ms`);
         res.json({
             message: "success",
             data: stocksWithHistory
@@ -198,7 +229,6 @@ const distPath = path.resolve(__dirname, '../dist');
 console.log('Serving static files from:', distPath);
 
 // Check if dist exists (debugging for Render)
-const fs = require('fs');
 if (fs.existsSync(distPath)) {
     console.log('Dist directory exists.');
     console.log('Contents:', fs.readdirSync(distPath));

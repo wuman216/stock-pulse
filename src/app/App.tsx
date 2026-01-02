@@ -21,6 +21,7 @@ interface StockData {
   turnoverRate?: string | number;
   change5d?: number;
   bias20?: number;
+  hasFutures?: boolean;
   kline: any[];
   trend: any[];
 }
@@ -32,7 +33,7 @@ const generateMockVisuals = (basePrice: number, dateStr?: string) => {
   // Use provided date or fallback to today
   const anchorDate = dateStr ? parseISO(dateStr) : new Date();
 
-  for (let i = 9; i >= 0; i--) {
+  for (let i = 19; i >= 0; i--) {
     const date = new Date(anchorDate);
     date.setDate(anchorDate.getDate() - i);
 
@@ -55,7 +56,7 @@ const generateMockVisuals = (basePrice: number, dateStr?: string) => {
   // Trend
   const trend = [];
   currentPrice = basePrice;
-  for (let i = 29; i >= 0; i--) {
+  for (let i = 59; i >= 0; i--) {
     const date = new Date(anchorDate);
     date.setDate(anchorDate.getDate() - i);
     currentPrice = currentPrice + (Math.random() - 0.5) * (basePrice * 0.03);
@@ -137,6 +138,7 @@ export default function App() {
             turnoverRate: item.turnover_rate || 'N/A',
             change5d: item.change_5d,
             bias20: item.bias_20,
+            hasFutures: item.has_futures,
             kline: kline,
             trend: trend
           };
@@ -285,6 +287,7 @@ export default function App() {
                         turnoverRate={stock.turnoverRate}
                         change5d={stock.change5d}
                         bias20={stock.bias20}
+                        hasFutures={stock.hasFutures}
                         kline={stock.kline}
                         trend={stock.trend}
                       />
@@ -317,6 +320,7 @@ export default function App() {
                         turnoverRate={stock.turnoverRate}
                         change5d={stock.change5d}
                         bias20={stock.bias20}
+                        hasFutures={stock.hasFutures}
                         kline={stock.kline}
                         trend={stock.trend}
                       />

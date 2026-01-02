@@ -94,7 +94,9 @@ class DBAdapter {
             // Attempt migration for existing tables
             await this.client.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS turnover_rate REAL');
             await this.client.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS shares_outstanding BIGINT');
-            console.log("PG Table 'transactions' ensured/migrated.");
+            await this.client.query('CREATE INDEX IF NOT EXISTS idx_stock_date ON transactions (stock_code, date)');
+            await this.client.query('CREATE INDEX IF NOT EXISTS idx_date_value ON transactions (date, trade_value DESC)');
+            console.log("PG Table 'transactions' ensured/migrated + Indices created.");
         } catch (e) {
             console.error("PG Init Error:", e);
             throw e;
