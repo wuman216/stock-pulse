@@ -133,27 +133,46 @@ export function StockCard({ rank, code, name, price, change, changePercent, volu
               {turnoverRate ?? 'N/A'}%
             </div>
           </div>
-          {/* New Metrics */}
-          {(typeof change5d === 'number' || typeof bias20 === 'number') && (
-            <div className="flex flex-col gap-1 mt-2 border-t pt-1">
-              {typeof change5d === 'number' && (
-                <div className={`text-xs flex justify-end gap-1 ${change5d > 30 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
-                  <span>5日:</span>
-                  <span>{change5d > 0 ? '+' : ''}{change5d.toFixed(1)}%</span>
-                  {change5d > 30 && <span className="text-[10px] bg-red-100 px-1 rounded">高風險</span>}
-                </div>
-              )}
-              {typeof bias20 === 'number' && (
-                <div className={`text-xs flex justify-end gap-1 ${bias20 > 20 ? 'text-orange-600 font-bold' : 'text-gray-500'}`}>
-                  <span>乖離:</span>
-                  <span>{bias20 > 0 ? '+' : ''}{bias20.toFixed(1)}%</span>
-                  {bias20 > 20 && <span className="text-[10px] bg-orange-100 px-1 rounded">警戒</span>}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Technical Indicators Area */}
+      {(typeof change5d === 'number' || typeof bias20 === 'number') && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 mb-4 text-xs text-gray-600 border-t pt-2">
+          {typeof change5d === 'number' && (() => {
+            let config = { label: '正常', className: 'bg-gray-100 text-gray-700' };
+            if (change5d > 15) config = { label: '高風險', className: 'bg-red-500 text-white' };
+            else if (change5d > 5) config = { label: '偏熱', className: 'bg-orange-500 text-white' };
+            else if (change5d < -5) config = { label: '偏冷', className: 'bg-green-500 text-white' };
+
+            return (
+              <div className="flex items-center gap-2">
+                <span>5日漲幅:</span>
+                <span className={`px-2 py-0.5 rounded font-medium ${config.className}`}>
+                  {config.label} {change5d > 0 ? '+' : ''}{change5d.toFixed(1)}%
+                </span>
+              </div>
+            );
+          })()}
+
+          {typeof bias20 === 'number' && (() => {
+            let config = { label: '正常', className: 'bg-gray-100 text-gray-700' };
+            if (bias20 > 10) config = { label: '警戒', className: 'bg-orange-500 text-white' };
+            else if (bias20 > 5) config = { label: '偏高', className: 'bg-yellow-500 text-white' };
+            else if (bias20 < -10) config = { label: '超跌', className: 'bg-blue-800 text-white' };
+            else if (bias20 < -5) config = { label: '偏低', className: 'bg-sky-400 text-white' };
+
+            return (
+              <div className="flex items-center gap-2">
+                <span>20MA乖離:</span>
+                <span className={`px-2 py-0.5 rounded font-medium ${config.className}`}>
+                  {config.label} {bias20 > 0 ? '+' : ''}{bias20.toFixed(1)}%
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* K線和走勢圖 */}
       <div className="space-y-3 mt-4">
